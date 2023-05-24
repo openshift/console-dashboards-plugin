@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	server "github.com/jgbernalp/dashboards-datasource-plugin/pkg/server"
+	server "github.com/openshift/console-dashboards-plugin/pkg/server"
 	"github.com/sirupsen/logrus"
 )
 

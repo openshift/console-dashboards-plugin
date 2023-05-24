@@ -1,4 +1,4 @@
-module github.com/jgbernalp/dashboards-datasource-plugin
+module github.com/openshift/console-dashboards-plugin
 
 go 1.18
 

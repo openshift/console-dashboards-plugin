@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	datasources "github.com/jgbernalp/dashboards-datasource-plugin/pkg/datasources"
+	datasources "github.com/openshift/console-dashboards-plugin/pkg/datasources"
 	oscrypto "github.com/openshift/library-go/pkg/crypto"
 	"github.com/sirupsen/logrus"
 )

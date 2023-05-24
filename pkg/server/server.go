@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	apiv1 "github.com/jgbernalp/dashboards-datasource-plugin/pkg/api/v1"
-	datasources "github.com/jgbernalp/dashboards-datasource-plugin/pkg/datasources"
-	proxy "github.com/jgbernalp/dashboards-datasource-plugin/pkg/proxy"
+	apiv1 "github.com/openshift/console-dashboards-plugin/pkg/api/v1"
+	datasources "github.com/openshift/console-dashboards-plugin/pkg/datasources"
+	proxy "github.com/openshift/console-dashboards-plugin/pkg/proxy"
 	"github.com/sirupsen/logrus"
 )
 
