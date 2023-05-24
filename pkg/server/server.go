@@ -42,8 +42,8 @@ func Start(cfg *Config) error {
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		Handler:      muxRouter,
 		TLSConfig:    tlsConfig,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		ReadTimeout:  5 * time.Minute,
+		WriteTimeout: 60 * time.Second,
 	}
 
 	log.Infof("server listening on port: %d", cfg.Port)
