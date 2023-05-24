@@ -1,0 +1,17 @@
+[
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/dashboards-datasource-plugin",
+      "component": { "$codeRef": "ProxyTestPage" }
+    }
+  },
+  {
+    "type": "console.dashboards/datasource",
+    "properties": {
+      "contextId": "monitoring-dashboards",
+      "getDataSource": { "$codeRef": "GetDatasource" }
+    }
+  }
+]
