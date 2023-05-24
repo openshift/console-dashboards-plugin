@@ -3,6 +3,7 @@ module github.com/openshift/console-dashboards-plugin
 go 1.18
 
 require (
+	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/openshift/library-go v0.0.0-20230130232623-47904dd9ff5a
 	github.com/sirupsen/logrus v1.9.0
@@ -14,6 +15,7 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
+	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.20.0 // indirect
