@@ -1,18 +1,12 @@
 package datasources
 
-type Service struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	Port      int    `json:"port"`
-}
-
 type DatasourceMetadata struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace,omitempty"`
 }
 
 type DatasourcePluginSpec struct {
-	Service Service `json:"service"`
+	DirectURL string `json:"direct_url"`
 }
 
 type DatasourcePlugin struct {

@@ -88,11 +88,11 @@ func getProxy(datasourceName string, serviceCAfile string, datasourceManager *da
 		TLSHandshakeTimeout: tlsHandshakeTimeout,
 	}
 
-	targetURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:%d", datasource.Spec.Plugin.Spec.Service.Name, datasource.Spec.Plugin.Spec.Service.Namespace, datasource.Spec.Plugin.Spec.Service.Port)
+	targetURL := datasource.Spec.Plugin.Spec.DirectURL
 	proxyURL, err := url.Parse(targetURL)
 
 	if err != nil {
-		log.WithError(err).Errorf("cannot parse service URL", targetURL)
+		log.WithError(err).Errorf("cannot parse direct URL", targetURL)
 		return nil
 	} else {
 		reverseProxy := httputil.NewSingleHostReverseProxy(proxyURL)

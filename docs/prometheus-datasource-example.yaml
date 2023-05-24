@@ -1,0 +1,9 @@
+kind: "Datasource"
+metadata:
+  name: "my-custom-prometheus-datasource"
+  project: "console-dashboards"
+spec:
+  plugin:
+    kind: "PrometheusDatasource"
+    spec:
+      direct_url: "https://my-custom-prometheus-service.my-service-namespace.svc.cluster.local:9091"
