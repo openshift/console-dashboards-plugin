@@ -17,14 +17,12 @@ data:
     kind: "Datasource"
     metadata:
       name: "my-custom-prometheus-datasource"
+      project: "console-dashboards"
     spec:
       plugin:
-        kind: "prometheus"
+        kind: "PrometheusDatasource"
         spec:
-          service:
-            name: "my-custom-prometheus-service"
-            namespace: "my-service-namespace"
-            port: 9091
+          direct_url: "https://my-custom-prometheus-service.my-service-namespace.svc.cluster.local:9091"
 ```
 
 After the datasource is added a custom dashboard can be configured to connect to it, this can be in a panel or variable (templating)
