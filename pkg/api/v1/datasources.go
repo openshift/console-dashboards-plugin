@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/jgbernalp/dashboards-datasource-plugin/pkg/datasources"
+	"github.com/openshift/console-dashboards-plugin/pkg/datasources"
 	"github.com/sirupsen/logrus"
 )
 
