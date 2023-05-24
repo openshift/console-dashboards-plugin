@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -65,14 +66,26 @@ func getProxy(datasourceName string, serviceCAfile string, datasourceManager *da
 		RootCAs: serviceProxyRootCAs,
 	})
 
+	const (
+		dialerKeepalive       = 30 * time.Second
+		dialerTimeout         = 5 * time.Minute // Maximum request timeout for most browsers.
+		tlsHandshakeTimeout   = 10 * time.Second
+		websocketPingInterval = 30 * time.Second
+		websocketTimeout      = 30 * time.Second
+	)
+
+	dialer := &net.Dialer{
+		Timeout:   dialerTimeout,
+		KeepAlive: dialerKeepalive,
+	}
+
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, network, addr)
+		},
 		TLSClientConfig:     serviceProxyTLSConfig,
-		TLSHandshakeTimeout: 10 * time.Second,
+		TLSHandshakeTimeout: tlsHandshakeTimeout,
 	}
 
 	targetURL := fmt.Sprintf("https://%s.%s.svc.cluster.local:%d", datasource.Spec.Plugin.Spec.Service.Name, datasource.Spec.Plugin.Spec.Service.Namespace, datasource.Spec.Plugin.Spec.Service.Port)
