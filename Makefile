@@ -32,11 +32,11 @@ install-backend:
 
 .PHONY: build-backend
 build-backend:
-	go build -o plugin-backend cmd/main.go
+	go build -o plugin-backend cmd/plugin-backend.go
 
 .PHONY: start-backend
 start-backend:
-	go run ./cmd/main.go
+	go run ./cmd/plugin-backend.go
 
 .PHONY: build-image
 build-image:
