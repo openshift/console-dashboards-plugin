@@ -1,0 +1,13 @@
+{{- if .Values.plugin.jobs.patchConsoles.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "openshift-console-plugin.configMapReaderName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openshift-console-plugin.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get","list","watch"]
+{{- end }}
