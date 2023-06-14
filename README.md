@@ -1,6 +1,6 @@
 # Dashboards Dynamic Plugin for OpenShift Console
 
-This plugin adds custom datasources for openshift dashboards. It requires OpenShift 4.10+
+This plugin adds custom datasources for OpenShift dashboards. It requires OpenShift 4.10+
 
 ##
 
@@ -17,10 +17,10 @@ to build and run the plugin. To run OpenShift console in a container, either
 
 ### Running locally
 
-1. Install the dependencies running `make install`
-2. Start the backend `make start-backend`
-3. In a different terminal start the frontend `make start-frontend`
-4. In a different terminal start the console
+1. Install the dependencies with `make install`
+2. Start the backend with `make start-backend`
+3. In a different terminal, start the frontend with `make start-frontend`
+4. In a different terminal, start the console
    a. `oc login` (requires [oc](https://console.redhat.com/openshift/downloads) and an [OpenShift cluster](https://console.redhat.com/openshift/create))
    b. `make start-console` (requires [Docker](https://www.docker.com) or [podman 3.2.0+](https://podman.io))
 
@@ -29,7 +29,7 @@ runs on port 9002 with CORS enabled.
 
 Navigate to <http://localhost:9000> to see the running plugin.
 
-### Build a testing the image
+### Building the image
 
 ```sh
 make build-image
