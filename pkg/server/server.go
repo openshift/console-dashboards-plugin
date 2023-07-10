@@ -31,7 +31,6 @@ func Start(cfg *Config) error {
 	go datasourceManager.WatchDatasources(cfg.DashboardsNamespace)
 
 	muxRouter := mux.NewRouter()
-	muxRouter.Use(corsHeaderMiddleware(cfg))
 
 	loggedRouter := handlers.LoggingHandler(log.Logger.Out, muxRouter)
 
@@ -81,14 +80,4 @@ func healthHandler() http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok"))
 	})
-}
-
-func corsHeaderMiddleware(cfg *Config) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			headers := w.Header()
-			headers.Set("Access-Control-Allow-Origin", "*")
-			next.ServeHTTP(w, r)
-		})
-	}
 }
