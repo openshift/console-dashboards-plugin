@@ -43,4 +43,9 @@ COPY --from=go-builder /go/src/github.com/openshift/console-dashboards-plugin/pl
 USER 1001
 WORKDIR /usr/bin
 
+LABEL io.k8s.display-name="OpenShift console dashboards plugin" \
+      io.k8s.description="This is an OpenShift console plugin to enhance dashboards." \
+      io.openshift.tags="openshift" \
+      maintainer="Observability UI Team <team-observability-ui@redhat.com>"
+
 ENTRYPOINT ["/usr/bin/plugin-backend", "-static-path", "/usr/share/web/dist"]
