@@ -1,0 +1,46 @@
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-openshift-nodejs-base-4.14.art AS web-builder
+
+# Copy app sources
+COPY $REMOTE_SOURCES $REMOTE_SOURCES_DIR
+COPY . /usr/src/app
+WORKDIR /usr/src/app/web
+
+# bootstrap yarn so we can install and run the other tools.
+USER 0
+ARG YARN_VERSION=v1.22.19
+RUN CACHED_YARN=./artifacts/yarn-${YARN_VERSION}.tar.gz; \
+    if [ -f ${CACHED_YARN} ]; then \
+      npm install -g ${CACHED_YARN}; \
+    else \
+      echo "need yarn at ${CACHED_YARN}"; \
+      exit 1; \
+    fi
+
+# use dependencies provided by Cachito
+ENV HUSKY=0
+RUN test -d ${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps || exit 1; \
+    cp -f $REMOTE_SOURCES_DIR/cachito-gomod-with-deps/app/{.npmrc,.yarnrc,yarn.lock,registry-ca.pem} . \
+ && source ${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps/cachito.env \
+ && yarn && yarn build
+
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.18-openshift-4.14 AS go-builder
+
+COPY $REMOTE_SOURCES $REMOTE_SOURCES_DIR
+WORKDIR /go/src/github.com/openshift/console-dashboards-plugin
+
+COPY go.mod go.mod
+COPY go.sum go.sum
+COPY cmd/ cmd/
+COPY pkg/ pkg/
+
+RUN go build -o plugin-backend ./cmd/plugin-backend.go
+
+FROM registry.ci.openshift.org/ocp/4.14:base
+
+COPY --from=web-builder /usr/src/app/web/dist /usr/share/web/dist
+COPY --from=go-builder /go/src/github.com/openshift/console-dashboards-plugin/plugin-backend /usr/bin/plugin-backend
+
+USER 1001
+WORKDIR /usr/bin
+
+ENTRYPOINT ["/usr/bin/plugin-backend", "-static-path", "/usr/share/web/dist"]
