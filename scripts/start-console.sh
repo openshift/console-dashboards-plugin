@@ -20,7 +20,7 @@ set -e
 BRIDGE_K8S_AUTH_BEARER_TOKEN=$(oc whoami --show-token 2>/dev/null)
 BRIDGE_USER_SETTINGS_LOCATION="localstorage"
 
-PLUGIN_PROXY='{"services": [{"consoleAPIPath": "/api/proxy/plugin/console-dashboards-plugin/backend/", "authorize": true, "endpoint": "http://localhost:9001/"}]}'
+PLUGIN_PROXY='{"services": [{"consoleAPIPath": "/api/proxy/plugin/console-dashboards-plugin/backend/", "authorize": true, "endpoint": "http://host.docker.internal:9001/"}]}'
 
 # Don't fail if the cluster doesn't have gitops.
 set +e
