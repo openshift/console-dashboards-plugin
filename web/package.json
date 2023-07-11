@@ -12,12 +12,12 @@
     "start-console": "./start-console.sh",
     "i18n": "i18next \"src/**/*.{js,jsx,ts,tsx}\" [-oc] -c i18next-parser.config.js",
     "ts-node": "ts-node -O '{\"module\":\"commonjs\"}'",
-    "lint": "eslint ./src && stylelint \"src/**/*.css\" --allow-empty-input",
-    "lint-fix": "eslint ./src --fix && stylelint \"src/**/*.css\" --allow-empty-input --fix"
+    "lint": "eslint ./src",
+    "lint-fix": "eslint ./src --fix"
   },
   "devDependencies": {
-    "@openshift-console/dynamic-plugin-sdk": "0.0.12",
-    "@openshift-console/dynamic-plugin-sdk-webpack": "0.0.7",
+    "@openshift-console/dynamic-plugin-sdk": "^0.0.20",
+    "@openshift-console/dynamic-plugin-sdk-webpack": "^0.0.10",
     "@patternfly/react-core": "4.221.3",
     "@types/node": "^18.0.0",
     "@types/react": "^17.0.37",
@@ -26,12 +26,11 @@
     "@typescript-eslint/eslint-plugin": "^5.29.0",
     "@typescript-eslint/parser": "^5.29.0",
     "css-loader": "^6.7.1",
-    "eslint": "^8.18.0",
+    "eslint": "^8.44.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.1.0",
-    "eslint-plugin-react": "^7.30.1",
+    "eslint-plugin-react": "^7.32.2",
     "prettier": "^2.7.1",
-    "prettier-stylelint": "^0.4.2",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
     "react-helmet": "^6.1.0",
@@ -39,15 +38,15 @@
     "react-router": "5.2.0",
     "react-router-dom": "5.2.0",
     "style-loader": "^3.3.1",
-    "stylelint": "^14.9.1",
-    "stylelint-config-prettier": "^9.0.3",
-    "stylelint-config-standard": "^26.0.0",
     "ts-loader": "^9.3.1",
     "ts-node": "^10.8.1",
     "typescript": "^4.7.4",
-    "webpack": "^5.68.0",
+    "webpack": "^5.76.3",
     "webpack-cli": "^4.9.2",
-    "webpack-dev-server": "^4.7.4"
+    "webpack-dev-server": "^4.15.1"
+  },
+  "resolutions": {
+    "minimatch": "^3.0.5"
   },
   "consolePlugin": {
     "name": "console-dashboards-plugin",
