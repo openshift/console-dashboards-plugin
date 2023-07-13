@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	validator "github.com/asaskevich/govalidator"
 	"github.com/gorilla/mux"
 	"github.com/openshift/console-dashboards-plugin/pkg/datasources"
 	"github.com/sirupsen/logrus"
@@ -14,7 +15,14 @@ var log = logrus.WithField("module", "datasources-api")
 func CreateDashboardsHandler(datasourceManager *datasources.DatasourceManager) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
+
 		datasourceName := vars["name"]
+
+		if !validator.IsDNSName(datasourceName) {
+			log.Error("invalid datasource name")
+			http.Error(w, "invalid datasource name", http.StatusBadRequest)
+			return
+		}
 
 		if len(datasourceName) == 0 {
 			log.Error("invalid datasource name")

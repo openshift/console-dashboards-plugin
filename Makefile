@@ -30,6 +30,10 @@ lint-frontend:
 install-backend:
 	go mod download
 
+.PHONY: test-unit-backend
+test-unit-backend:
+	go test ./...
+
 .PHONY: build-backend
 build-backend:
 	go build -o plugin-backend cmd/plugin-backend.go

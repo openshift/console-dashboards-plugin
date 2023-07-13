@@ -110,7 +110,7 @@ func (manager *DatasourceManager) WatchDatasources(namespace string) error {
 							log.WithField("datasource_name", configMapData.Metadata.Name).Infof("datasource loaded: %s", configMapData.Metadata.Name)
 						}
 					} else {
-						log.Debug("failed when modified %v", event.Object)
+						log.Debugf("failed when modified %v", event.Object)
 					}
 				case watch.Deleted:
 					if configMap, ok := event.Object.(*v1.ConfigMap); ok {
@@ -124,7 +124,7 @@ func (manager *DatasourceManager) WatchDatasources(namespace string) error {
 							log.WithField("datasource-name", configMapData.Metadata.Name).Infof("datasource deleted: %s", configMapData.Metadata.Name)
 						}
 					} else {
-						log.Debug("failed when deleted %v", event.Object)
+						log.Debugf("failed when deleted %v", event.Object)
 					}
 				default:
 					// Do nothing

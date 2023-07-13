@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	validator "github.com/asaskevich/govalidator"
 	"github.com/gorilla/mux"
 	datasources "github.com/openshift/console-dashboards-plugin/pkg/datasources"
 	oscrypto "github.com/openshift/library-go/pkg/crypto"
@@ -92,7 +93,7 @@ func getProxy(datasourceName string, serviceCAfile string, datasourceManager *da
 	proxyURL, err := url.Parse(targetURL)
 
 	if err != nil {
-		log.WithError(err).Errorf("cannot parse direct URL", targetURL)
+		log.WithError(err).Error("cannot parse direct URL", targetURL)
 		return nil
 	} else {
 		reverseProxy := httputil.NewSingleHostReverseProxy(proxyURL)
@@ -108,6 +109,12 @@ func CreateProxyHandler(serviceCAfile string, datasourceManager *datasources.Dat
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		datasourceName := vars["datasourceName"]
+
+		if !validator.IsDNSName(datasourceName) {
+			log.Error("invalid datasource name")
+			http.Error(w, "invalid datasource name", http.StatusBadRequest)
+			return
+		}
 
 		if len(datasourceName) == 0 {
 			log.Errorf("cannot proxy request, datasource name was not provided")
