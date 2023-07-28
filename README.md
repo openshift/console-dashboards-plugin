@@ -1,3 +1,29 @@
+# JZ NOTES: 
+This branch is for local-testing of both the `console-dashboars-plugin` and `monitoring-plugin`. 
+`start-console.sh` has been modified `BRIDGE_PLUGIN`` and `BRIDGE_PROXY` to point at the `monitoring-plugin`. 
+
+```
+cd console-dashboards-plugin
+git branch local-dev-monitoring 
+make install 
+make start-backend 
+# in a different terminal
+make start-frontent 
+# in a different terminal
+make start-console
+
+# start monitoring-plugin for local development
+ cd monitoring-plugin
+ git chekcout branch local-dev-dashboards
+ yarn install
+ yarn start 
+
+ # point your browser to localhost:9000, both dynamic plugins (`console-dashboards-plugin` and `monitoring-plugin`) should be loaded
+```
+
+
+
+
 # Dashboards Dynamic Plugin for OpenShift Console
 
 This plugin adds custom datasources for OpenShift dashboards. It requires OpenShift 4.10+

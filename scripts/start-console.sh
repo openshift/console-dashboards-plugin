@@ -20,7 +20,7 @@ set -e
 BRIDGE_K8S_AUTH_BEARER_TOKEN=$(oc whoami --show-token 2>/dev/null)
 BRIDGE_USER_SETTINGS_LOCATION="localstorage"
 
-PLUGIN_PROXY='{"services": [{"consoleAPIPath": "/api/proxy/plugin/console-dashboards-plugin/backend/", "authorize": true, "endpoint": "http://host.docker.internal:9001/"}]}'
+PLUGIN_PROXY='{"services": [{"consoleAPIPath": "/api/proxy/plugin/console-dashboards-plugin/backend/", "authorize": true, "endpoint": "http://host.docker.internal:9003/"},{"consoleAPIPath": "/api/proxy/plugin/monitoring-plugin/backend/", "authorize": true, "endpoint": "http://host.docker.internal:9001"}]}'
 
 # Don't fail if the cluster doesn't have gitops.
 set +e
@@ -35,17 +35,32 @@ echo "Console Image: $CONSOLE_IMAGE"
 echo "Console URL: http://localhost:${CONSOLE_PORT}"
 echo "Plugin proxy: ${PLUGIN_PROXY}"
 
+# # Prefer podman if installed. Otherwise, fall back to docker.
+# if [ -x "$(command -v podman)" ]; then
+#     if [ "$(uname -s)" = "Linux" ]; then
+#         # Use host networking on Linux since host.containers.internal is unreachable in some environments.
+#         BRIDGE_PLUGINS="console-dashboards-plugin=http://localhost:9003,monitoring-plugin=http://host.containers.internal:9001"
+#         podman run --pull always --rm --network=host --env-file <(set | grep BRIDGE) --env BRIDGE_PLUGIN_PROXY="${PLUGIN_PROXY}" $CONSOLE_IMAGE
+#     else
+#         BRIDGE_PLUGINS="console-dashboards-plugin=http://host.containers.internal:9003,monitoring-plugin=http://host.docker.internal:9001"
+#         podman run --pull always --rm -p "$CONSOLE_PORT":9000 --env-file <(set | grep BRIDGE) --env BRIDGE_PLUGIN_PROXY="${PLUGIN_PROXY}" $CONSOLE_IMAGE
+#     fi
+# else
+#     BRIDGE_PLUGINS="console-dashboards-plugin=http://host.docker.internal:9003,monitoring-plugin=http://host.docker.internal:9001"
+#     docker run --pull always --rm -p "$CONSOLE_PORT":9000 --env-file <(set | grep BRIDGE) --env BRIDGE_PLUGIN_PROXY="${PLUGIN_PROXY}" $CONSOLE_IMAGE
+# fi
+
 # Prefer podman if installed. Otherwise, fall back to docker.
 if [ -x "$(command -v podman)" ]; then
     if [ "$(uname -s)" = "Linux" ]; then
         # Use host networking on Linux since host.containers.internal is unreachable in some environments.
-        BRIDGE_PLUGINS="console-dashboards-plugin=http://localhost:9001"
+        BRIDGE_PLUGINS="console-dashboards-plugin=http://localhost:9001,monitoring-plugin=http://localhost:9003"
         podman run --pull always --rm --network=host --env-file <(set | grep BRIDGE) --env BRIDGE_PLUGIN_PROXY="${PLUGIN_PROXY}" $CONSOLE_IMAGE
     else
-        BRIDGE_PLUGINS="console-dashboards-plugin=http://host.containers.internal:9001"
+        BRIDGE_PLUGINS="console-dashboards-plugin=http://host.containers.internal:9001,monitoring-plugin=http://host.containers.internal:9003"
         podman run --pull always --rm -p "$CONSOLE_PORT":9000 --env-file <(set | grep BRIDGE) --env BRIDGE_PLUGIN_PROXY="${PLUGIN_PROXY}" $CONSOLE_IMAGE
     fi
 else
-    BRIDGE_PLUGINS="console-dashboards-plugin=http://host.docker.internal:9001"
+    BRIDGE_PLUGINS="console-dashboards-plugin=http://host.docker.internal:9001,monitoring-plugin=http://host.docker.internal:9003"
     docker run --pull always --rm -p "$CONSOLE_PORT":9000 --env-file <(set | grep BRIDGE) --env BRIDGE_PLUGIN_PROXY="${PLUGIN_PROXY}" $CONSOLE_IMAGE
 fi
