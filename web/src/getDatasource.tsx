@@ -60,6 +60,7 @@ function getDataSource(datasourceName: string): DatasourceInfo {
     // {"kind":"Datasource","metadata":{"name":"cluster-prometheus-proxy"},"spec":{"plugin":{"kind":"prometheus","spec":{"direct_url":""}}}}
     // need to spoof jsonData becuase it fetches localhost:9000 instead of https://console-openshift-console.apps.rhoms-4.13-073104.dev.openshiftappsvc.org/
 
+    console.log("JZ hello world")
     const basePath = `/api/proxy/plugin/console-dashboards-plugin/backend/proxy/${datasourceName}`;
     const dataSourceType = "prometheus";
 
