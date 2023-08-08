@@ -1,6 +1,8 @@
 import * as React from 'react';
 import getDataSource from '../getDatasource';
 
+// NOTE the path to this is "/dashboards-datasource-plugin"
+
 const DEFAULT_PROXY_URL =
   '/api/proxy/plugin/console-dashboards-plugin/backend/proxy/cluster-prometheus-proxy/api/v1/status/config';
 const DEFAULT_DATASOURCE_NAME = 'cluster-prometheus-proxy';
@@ -62,14 +64,21 @@ export default function ProxyTestPage() {
   };
 
   const handleFetchDatasource = () => {
-    getDataSource(datasourceName)
-      .then(async (res) => {
-        setResponse(JSON.stringify(res, null, 2));
-      })
-      .catch((err) => {
-        console.error(err);
-        setResponse(String(err));
-      });
+    // getDataSource(datasourceName)
+    //   .then(async (res) => {
+    //     setResponse(JSON.stringify(res, null, 2));
+    //   })
+    //   .catch((err) => {
+    //     console.error(err);
+    //     setResponse(String(err));
+    //   });
+    try { 
+      setResponse(JSON.stringify(getDataSource(datasourceName)))
+    } catch (err) {
+      console.error(err);
+      setResponse(String(err));
+    }
+
   };
 
   const updateOption = (field: string, value: string) => {

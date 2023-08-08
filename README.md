@@ -71,6 +71,11 @@ to serve the plugin's assets and proxy to the configured datasources.
 helm upgrade -i console-dashboards-plugin charts/console-dashboards-plugin -n console-dashboards --create-namespace
 ```
 
+JZ image: 
+```sh
+helm upgrade -i console-dashboards-plugin charts/console-dashboards-plugin -n console-dashboards --create-namespace --set plugin.image=quay.io/jezhu/console-dashboards-plugin:0.0.1
+```
+
 ## Add a new Datasource
 
 See [add datasource docs](docs/add-datasource.md)
