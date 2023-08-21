@@ -71,3 +71,10 @@ Create the name of the configmap reader
 {{- define "openshift-console-plugin.configMapReaderName" -}}
 {{- printf "%s-configmap-reader" (include "openshift-console-plugin.name" .) }}
 {{- end }}
+
+{{/*
+Create the name secret containing the certificate
+*/}}
+{{- define "openshift-console-plugin.certificateSecret" -}}
+{{ default (printf "%s-cert" (include "openshift-console-plugin.name" .)) .Values.plugin.certificateSecretName }}
+{{- end }}
