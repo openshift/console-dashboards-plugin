@@ -1,9 +1,19 @@
-kind: "Datasource"
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: "my-custom-prometheus-datasource"
-  project: "console-dashboards"
-spec:
-  plugin:
-    kind: "PrometheusDatasource"
+  name: cluster-prometheus-proxy
+  namespace: console-dashboards
+  labels:
+    console.openshift.io/dashboard-datasource: 'true'
+data:
+  'dashboard-datasource.yaml': |-
+    kind: "Datasource"
+    metadata:
+      name: "cluster-prometheus-proxy"
+      project: "console-dashboards"
     spec:
-      direct_url: "https://my-custom-prometheus-service.my-service-namespace.svc.cluster.local:9091"
+      plugin:
+        kind: "prometheus"
+        spec:
+          direct_url = "https://prometheus-k8s.openshift-monitoring.svc.cluster.local.9091"
+          
