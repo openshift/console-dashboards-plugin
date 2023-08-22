@@ -2,7 +2,7 @@
 plugin:
   name: "console-dashboards-plugin"
   description: ""
-  image: "quay.io/gbernal/console-dashboards-plugin:dev"
+  image: "quay.io/gbernal/console-dashboards-plugin:0.0.1"
   imagePullPolicy: Always
   replicas: 1
   port: 9443
