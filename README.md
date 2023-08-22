@@ -48,3 +48,9 @@ helm upgrade -i console-dashboards-plugin charts/console-dashboards-plugin -n co
 ## Add a new Datasource
 
 See [add datasource docs](docs/add-datasource.md)
+
+### Deploy an Example Datasource and Dashboard: 
+1. `oc login` (requires [oc](https://console.redhat.com/openshift/downloads) and an [OpenShift cluster](https://console.redhat.com/openshift/create))
+2. Deploy the plugin on the cluster `helm upgrade -i console-dashboards-plugin charts/console-dashboards-plugin -n console-dashboards --create-namespace`
+3. Run `make example` to deploy a testing datasource connected to the in-cluster prometheus
+4. Go to the OpenShift console. Then from the navigation menu, select 'Observe.' This selection will drop down more options; click 'Dashboards.' You'll see the example dashboard named '** DASHBOARD EXAMPLE **.' 
