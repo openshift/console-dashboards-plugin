@@ -1,4 +1,4 @@
-FROM registry.redhat.io/rhel8/nodejs-16:1-105.1684740145
+FROM registry.redhat.io/ubi9/nodejs-18:latest AS web-builder
 
 WORKDIR /usr/src/app
 
