@@ -36,7 +36,7 @@ test-unit-backend:
 
 .PHONY: build-backend
 build-backend:
-	go mod vendor && go build -o plugin-backend cmd/plugin-backend.go
+	go build -o plugin-backend cmd/plugin-backend.go
 
 .PHONY: start-backend
 start-backend:

@@ -5,7 +5,7 @@ set -euo pipefail
 PREFER_PODMAN="${PREFER_PODMAN:-0}"
 PUSH="${PUSH:-0}"
 TAG="${TAG:-0.0.1}"
-REGISTRY_ORG="${REGISTRY_ORG:-gbernal}"
+REGISTRY_ORG="${REGISTRY_ORG:-openshift-observability-ui}"
 
 if [[ -x "$(command -v podman)" && $PREFER_PODMAN == 1 ]]; then
     OCI_BIN="podman"
