@@ -2,12 +2,12 @@ FROM registry.redhat.io/ubi9/nodejs-18:latest AS web-builder
 
 WORKDIR /usr/src/app
 
+USER 0
+
 RUN npm install --global yarn
 
-COPY web/package.json web/yarn.lock .
+COPY web/ web/
 COPY Makefile Makefile
-RUN yarn
+RUN make install-frontend-ci
 
-COPY ./web .
-
-ENTRYPOINT ["yarn", "lint"]
+ENTRYPOINT ["make", "lint-frontend"]
