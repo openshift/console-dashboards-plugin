@@ -5,6 +5,7 @@ WORKDIR /usr/src/app
 RUN npm install --global yarn
 
 COPY web/package.json web/yarn.lock .
+COPY Makefile Makefile
 RUN yarn
 
 COPY ./web .
