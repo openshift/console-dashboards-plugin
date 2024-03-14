@@ -4,10 +4,7 @@ WORKDIR /opt/app-root
 
 USER 0
 
-RUN npm install --global yarn
-
 COPY web/package*.json web/
-COPY web/yarn.lock web/yarn.lock
 COPY Makefile Makefile
 RUN make install-frontend-ci-clean
 
