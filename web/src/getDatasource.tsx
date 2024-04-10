@@ -1,4 +1,4 @@
-import * as LRU from 'lru-cache';
+import LRUCache from 'lru-cache';
 const BACKEND_API = '/api/proxy/plugin/console-dashboards-plugin/backend';
 
 type DatasourceInfo = {
@@ -6,7 +6,7 @@ type DatasourceInfo = {
   dataSourceType: string;
 };
 
-const cache = new LRU<string, DatasourceInfo>({
+const cache = new LRUCache<string, DatasourceInfo>({
   max: 500,
   ttl: 1000 * 60 * 5,
 });

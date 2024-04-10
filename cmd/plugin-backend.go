@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	portArg       = flag.Int("port", 0, "server port to listen on (default: 9001)")
+	portArg       = flag.Int("port", 0, "server port to listen on (default: 9004)")
 	certArg       = flag.String("cert", "", "cert file path to enable TLS (disabled by default)")
 	keyArg        = flag.String("key", "", "private key file path to enable TLS (disabled by default)")
 	staticPathArg = flag.String("static-path", "", "static files path to serve frontend (default: './web/dist')")
@@ -21,7 +21,7 @@ var (
 func main() {
 	flag.Parse()
 
-	port := mergeEnvValueInt("PORT", *portArg, 9001)
+	port := mergeEnvValueInt("PORT", *portArg, 9004)
 	cert := mergeEnvValue("CERT_FILE_PATH", *certArg, "")
 	key := mergeEnvValue("PRIVATE_KEY_FILE_PATH", *keyArg, "")
 	staticPath := mergeEnvValue("STATIC_PATH", *staticPathArg, "./web/dist")
