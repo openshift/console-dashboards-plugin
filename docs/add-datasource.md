@@ -1,6 +1,6 @@
 # Add a new datasource
 
-The plugin will search for datasources as ConfigMaps in the `console-dashboards` namespace with the `console.openshift.io/dashboard-datasource: 'true'` label
+The plugin will search for datasources as ConfigMaps in the `openshift-config-managed` namespace with the `console.openshift.io/dashboard-datasource: 'true'` label
 
 The configmap must define a datasource type and an in-cluster service where the data can be fetched:
 
@@ -9,7 +9,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: my-custom-prometheus-datasource
-  namespace: console-dashboards
+  namespace: openshift-config-managed
   labels:
     console.openshift.io/dashboard-datasource: 'true'
 data:
@@ -17,7 +17,7 @@ data:
     kind: "Datasource"
     metadata:
       name: "my-custom-prometheus-datasource"
-      project: "console-dashboards"
+      project: "openshift-config-managed"
     spec:
       plugin:
         kind: "PrometheusDatasource"
