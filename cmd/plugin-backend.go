@@ -14,7 +14,7 @@ var (
 	certArg                = flag.String("cert", "", "cert file path to enable TLS (disabled by default)")
 	keyArg                 = flag.String("key", "", "private key file path to enable TLS (disabled by default)")
 	staticPathArg          = flag.String("static-path", "", "static files path to serve frontend (default: './web/dist')")
-	dashboardsNamespaceArg = flag.String("dashboards-namespace", "", "namespace to watch for custom datasources for dashboards (default: 'console-dashboards')")
+	dashboardsNamespaceArg = flag.String("dashboards-namespace", "", "namespace to watch for custom datasources for dashboards (default: 'openshift-config-managed')")
 	logLevel               = flag.String("loglevel", "info", "log level (default: info)")
 	log                    = logrus.WithField("module", "main")
 )
@@ -26,7 +26,7 @@ func main() {
 	cert := mergeEnvValue("CERT_FILE_PATH", *certArg, "")
 	key := mergeEnvValue("PRIVATE_KEY_FILE_PATH", *keyArg, "")
 	staticPath := mergeEnvValue("STATIC_PATH", *staticPathArg, "./web/dist")
-	dashboardsNamespace := mergeEnvValue("DASHBOARDS_NAMESPACE", *dashboardsNamespaceArg, "console-dashboards")
+	dashboardsNamespace := mergeEnvValue("DASHBOARDS_NAMESPACE", *dashboardsNamespaceArg, "openshift-config-managed")
 
 	lvl, err := logrus.ParseLevel(*logLevel)
 	if err != nil {
