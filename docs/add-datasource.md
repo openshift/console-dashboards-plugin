@@ -91,5 +91,9 @@ data:
         kind: "PrometheusDatasource"
         spec:
           direct_url: "https://my-custom-prometheus-service.my-service-namespace.svc.cluster.local:9091"
-  'dashboard-datasource-ca': '-----BEGIN CERTIFICATE-----\nMIID....'
+  'dashboard-datasource-ca': |-
+    -----BEGIN CERTIFICATE-----
+    ....
+    ....
+    -----END CERTIFICATE-----
 ```
