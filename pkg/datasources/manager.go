@@ -34,6 +34,8 @@ func NewDatasourceManager() *DatasourceManager {
 func (manager *DatasourceManager) SetDatasource(datasourceName string, datasource *DataSource) {
 	manager.mutex.Lock()
 	(*manager.datasourceMap)[datasourceName] = datasource
+	// Set the proxy to nil so that it will be recreated
+	(*manager.proxiesMap)[datasourceName] = nil
 	manager.mutex.Unlock()
 }
 

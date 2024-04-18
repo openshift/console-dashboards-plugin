@@ -15,5 +15,4 @@ data:
       plugin:
         kind: "prometheus"
         spec:
-          direct_url = "https://prometheus-k8s.openshift-monitoring.svc.cluster.local.9091"
-
+          direct_url: "https://prometheus-k8s.openshift-monitoring.svc.cluster.local:9091"
