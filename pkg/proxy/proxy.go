@@ -68,6 +68,11 @@ func getProxy(datasourceName string, serviceCAfile string, datasourceManager *da
 		}
 	}
 
+	if len(serviceCertPEM) == 0 {
+		log.Errorf("no certificate provided. Proxy to datasource '%s' will fail", datasourceName)
+		return nil
+	}
+
 	serviceProxyRootCAs := x509.NewCertPool()
 	if !serviceProxyRootCAs.AppendCertsFromPEM(serviceCertPEM) {
 		log.Errorf("no CA found or is invalid. Proxy to datasource '%s' will fail", datasourceName)
