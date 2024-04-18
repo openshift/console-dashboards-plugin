@@ -67,3 +67,29 @@ data:
     }
 
 ```
+
+# Configure a custom CA for a datasource
+
+if the datasource service uses a custom CA, the CA can be added to the datasource configmap:
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-custom-prometheus-datasource
+  namespace: openshift-config-managed
+  labels:
+    console.openshift.io/dashboard-datasource: 'true'
+data:
+  'dashboard-datasource.yaml': |-
+    kind: "Datasource"
+    metadata:
+      name: "my-custom-prometheus-datasource"
+      project: "openshift-config-managed"
+    spec:
+      plugin:
+        kind: "PrometheusDatasource"
+        spec:
+          direct_url: "https://my-custom-prometheus-service.my-service-namespace.svc.cluster.local:9091"
+  'dashboard-datasource-ca': '-----BEGIN CERTIFICATE-----\nMIID....'
+```
