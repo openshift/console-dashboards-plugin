@@ -19,16 +19,22 @@ import (
 var log = logrus.WithField("module", "datasources")
 
 type DataSourceMap = map[string]*DataSource
+type CAMap = map[string]*string
 type ProxiesMap = map[string]*httputil.ReverseProxy
 
 type DatasourceManager struct {
 	datasourceMap *DataSourceMap
+	caMap         *CAMap
 	proxiesMap    *ProxiesMap
 	mutex         *sync.Mutex
 }
 
 func NewDatasourceManager() *DatasourceManager {
-	return &DatasourceManager{&DataSourceMap{}, &ProxiesMap{}, &sync.Mutex{}}
+	return &DatasourceManager{
+		datasourceMap: &DataSourceMap{},
+		caMap:         &CAMap{},
+		proxiesMap:    &ProxiesMap{},
+		mutex:         &sync.Mutex{}}
 }
 
 func (manager *DatasourceManager) SetDatasource(datasourceName string, datasource *DataSource) {
@@ -43,6 +49,22 @@ func (manager *DatasourceManager) GetDatasource(datasourceName string) *DataSour
 		manager.mutex.Unlock()
 	}()
 	return (*manager.datasourceMap)[datasourceName]
+}
+
+func (manager *DatasourceManager) SetCA(datasourceName string, ca *string) {
+	manager.mutex.Lock()
+	(*manager.caMap)[datasourceName] = ca
+	// Set the proxy to nil so that it will be recreated
+	(*manager.proxiesMap)[datasourceName] = nil
+	manager.mutex.Unlock()
+}
+
+func (manager *DatasourceManager) GetCA(datasourceName string) *string {
+	manager.mutex.Lock()
+	defer func() {
+		manager.mutex.Unlock()
+	}()
+	return (*manager.caMap)[datasourceName]
 }
 
 func (manager *DatasourceManager) GetProxy(datasourceName string) *httputil.ReverseProxy {
@@ -63,6 +85,7 @@ func (manager *DatasourceManager) Delete(datasourceName string) {
 	manager.mutex.Lock()
 	delete(*manager.proxiesMap, datasourceName)
 	delete(*manager.datasourceMap, datasourceName)
+	delete(*manager.caMap, datasourceName)
 	manager.mutex.Unlock()
 }
 
@@ -100,29 +123,48 @@ func (manager *DatasourceManager) WatchDatasources(namespace string) error {
 					fallthrough
 				case watch.Modified:
 					if configMap, ok := event.Object.(*v1.ConfigMap); ok {
+						dataSourceYaml, ok := configMap.Data["dashboard-datasource.yaml"]
+						if !ok {
+							log.Errorf("key 'dashboard-datasource.yaml' not found in configMap: %s", configMap.Name)
+							continue
+						}
+
 						var configMapData DataSource
-						err := yaml.Unmarshal([]byte(configMap.Data["dashboard-datasource.yaml"]), &configMapData)
+						err := yaml.Unmarshal([]byte(dataSourceYaml), &configMapData)
 
 						if err != nil {
-							log.WithError(err).Errorf("cannot unmarshall configmap: %s while being modified", configMap.Name)
-						} else {
-							manager.SetDatasource(configMapData.Metadata.Name, &configMapData)
-							log.WithField("datasource_name", configMapData.Metadata.Name).Infof("datasource loaded: %s", configMapData.Metadata.Name)
+							log.WithError(err).Errorf("cannot unmarshall configmap datasource in key 'dashboard-datasource.yaml': %s", configMap.Name)
+							continue
+						}
+						manager.SetDatasource(configMapData.Metadata.Name, &configMapData)
+						log.WithField("datasource_name", configMapData.Metadata.Name).Infof("datasource loaded: %s", configMapData.Metadata.Name)
+
+						caValue, ok := configMap.Data["dashboard-datasource-ca"]
+
+						if ok {
+							manager.SetCA(configMapData.Metadata.Name, &caValue)
+							log.WithField("datasource_name", configMapData.Metadata.Name).Infof("CA loaded: %s", configMapData.Metadata.Name)
 						}
 					} else {
 						log.Debugf("failed when modified %v", event.Object)
 					}
 				case watch.Deleted:
 					if configMap, ok := event.Object.(*v1.ConfigMap); ok {
-						var configMapData DataSource
-						err := yaml.Unmarshal([]byte(configMap.Data["dashboard-datasource.yaml"]), &configMapData)
+						dataSourceYaml, ok := configMap.Data["dashboard-datasource.yaml"]
+						if !ok {
+							log.Errorf("key 'dashboard-datasource.yaml' not found in configMap: %s", configMap.Name)
+							continue
+						}
 
+						var configMapData DataSource
+						err := yaml.Unmarshal([]byte(dataSourceYaml), &configMapData)
 						if err != nil {
 							log.WithError(err).Errorf("cannot unmarshall configmap: %s while beign deleted", configMap.Name)
-						} else {
-							manager.Delete(configMapData.Metadata.Name)
-							log.WithField("datasource-name", configMapData.Metadata.Name).Infof("datasource deleted: %s", configMapData.Metadata.Name)
+							continue
 						}
+
+						manager.Delete(configMapData.Metadata.Name)
+						log.WithField("datasource-name", configMapData.Metadata.Name).Infof("datasource deleted: %s", configMapData.Metadata.Name)
 					} else {
 						log.Debugf("failed when deleted %v", event.Object)
 					}

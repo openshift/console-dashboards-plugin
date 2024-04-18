@@ -54,14 +54,24 @@ func getProxy(datasourceName string, serviceCAfile string, datasourceManager *da
 		return nil
 	}
 
-	// TODO: allow custom CA per datasource
-	serviceCertPEM, err := os.ReadFile(serviceCAfile)
-	if err != nil {
-		log.Errorf("failed to read certificate file: tried '%s' and got %v", serviceCAfile, err)
+	ca := datasourceManager.GetCA(datasourceName)
+	var serviceCertPEM []byte
+	var err error
+
+	if ca != nil && len(*ca) > 0 {
+		serviceCertPEM = []byte(*ca)
+	} else {
+		serviceCertPEM, err = os.ReadFile(serviceCAfile)
+		if err != nil {
+			log.Errorf("failed to read certificate file: tried '%s' and got %v", serviceCAfile, err)
+			return nil
+		}
 	}
+
 	serviceProxyRootCAs := x509.NewCertPool()
 	if !serviceProxyRootCAs.AppendCertsFromPEM(serviceCertPEM) {
-		log.Error("no CA found for Kubernetes services, proxy to datasources will fail")
+		log.Errorf("no CA found or is invalid. Proxy to datasource '%s' will fail", datasourceName)
+		return nil
 	}
 	serviceProxyTLSConfig := oscrypto.SecureTLSConfig(&tls.Config{
 		RootCAs: serviceProxyRootCAs,
