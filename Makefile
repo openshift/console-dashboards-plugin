@@ -36,7 +36,7 @@ test-unit-backend:
 
 .PHONY: build-backend
 build-backend:
-	go build -o plugin-backend cmd/plugin-backend.go
+	go build $(BUILD_OPTS) -o plugin-backend -mod=readonly cmd/plugin-backend.go
 
 .PHONY: start-backend
 start-backend:
@@ -50,5 +50,5 @@ build-image:
 install: install-frontend install-backend
 
 .PHONY: example
-example: 
+example:
 	cd docs && oc apply -f prometheus-datasource-example.yaml && oc apply -f prometheus-dashboard-example.yaml

@@ -10,10 +10,10 @@ USER 0
 ARG YARN_VERSION=v1.22.19
 RUN CACHED_YARN=../artifacts/yarn-${YARN_VERSION}.tar.gz; \
     if [ -f ${CACHED_YARN} ]; then \
-      npm install -g ${CACHED_YARN}; \
+    npm install -g ${CACHED_YARN}; \
     else \
-      echo "need yarn at ${CACHED_YARN}"; \
-      exit 1; \
+    echo "need yarn at ${CACHED_YARN}"; \
+    exit 1; \
     fi
 
 # use dependencies provided by Cachito
@@ -21,10 +21,10 @@ ENV HUSKY=0
 RUN test -d ${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps || exit 1; \
     cp -f $REMOTE_SOURCES_DIR/cachito-gomod-with-deps/app/web/{.npmrc,.yarnrc,yarn.lock} . \
     && cp -f $REMOTE_SOURCES_DIR/cachito-gomod-with-deps/app/registry-ca.pem .. \
- && source ${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps/cachito.env \
- && yarn && yarn build
+    && source ${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps/cachito.env \
+    && yarn && yarn build
 
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.20-openshift-4.14 AS go-builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.22-openshift-4.17 AS go-builder
 
 COPY $REMOTE_SOURCES $REMOTE_SOURCES_DIR
 WORKDIR /go/src/github.com/openshift/console-dashboards-plugin
@@ -35,9 +35,12 @@ COPY cmd/ cmd/
 COPY pkg/ pkg/
 COPY Makefile Makefile
 
-RUN source ${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps/cachito.env && make build-backend
+ENV GOEXPERIMENT=strictfipsruntime
+ENV CGO_ENABLED=1
 
-FROM registry.ci.openshift.org/ocp/4.14:base
+RUN source ${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps/cachito.env && make build-backend BUILD_OPTS="-tags strictfipsruntime"
+
+FROM registry.ci.openshift.org/ocp/4.17:base-rhel9
 
 COPY --from=web-builder /opt/app-root/src/app/web/dist /usr/share/web/dist
 COPY --from=go-builder /go/src/github.com/openshift/console-dashboards-plugin/plugin-backend /usr/bin/plugin-backend
@@ -46,8 +49,8 @@ USER 1001
 WORKDIR /usr/bin
 
 LABEL io.k8s.display-name="OpenShift console dashboards plugin" \
-      io.k8s.description="This is an OpenShift console plugin to enhance dashboards." \
-      io.openshift.tags="openshift" \
-      maintainer="Observability UI Team <team-observability-ui@redhat.com>"
+    io.k8s.description="This is an OpenShift console plugin to enhance dashboards." \
+    io.openshift.tags="openshift" \
+    maintainer="Observability UI Team <team-observability-ui@redhat.com>"
 
 ENTRYPOINT ["/usr/bin/plugin-backend", "-static-path", "/usr/share/web/dist"]
