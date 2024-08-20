@@ -17,7 +17,7 @@ BASE_IMAGE="quay.io/${REGISTRY_ORG}/console-dashboards-plugin"
 IMAGE=${BASE_IMAGE}:${TAG}
 
 echo "Building image '${IMAGE}' with ${OCI_BIN}"
-$OCI_BIN build -t $IMAGE .
+$OCI_BIN build -t $IMAGE -f Dockerfile.dev .
 
 if [[ $PUSH == 1 ]]; then
     $OCI_BIN push $IMAGE
