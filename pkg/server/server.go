@@ -22,6 +22,7 @@ type Config struct {
 	CertFile            string
 	PrivateKeyFile      string
 	StaticPath          string
+	LogLevel            string
 	DashboardsNamespace string
 }
 
@@ -32,8 +33,6 @@ func Start(cfg *Config) error {
 
 	muxRouter := mux.NewRouter()
 
-	loggedRouter := handlers.LoggingHandler(log.Logger.Out, muxRouter)
-
 	muxRouter.PathPrefix("/health").HandlerFunc(healthHandler())
 	muxRouter.PathPrefix("/proxy/{datasourceName}/").HandlerFunc(proxy.CreateProxyHandler(cfg.CertFile, datasourceManager))
 	muxRouter.HandleFunc("/api/v1/datasources/{name}", apiv1.CreateDashboardsHandler(datasourceManager))
@@ -43,20 +42,33 @@ func Start(cfg *Config) error {
 		MinVersion: tls.VersionTLS12,
 	}
 
+	logrusLevel, err := logrus.ParseLevel(cfg.LogLevel)
+	if err != nil {
+		logrus.WithError(err).Fatal("unable to set the log level")
+		logrusLevel = logrus.ErrorLevel
+	}
+
 	server := http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
-		Handler:      loggedRouter,
+		Handler:      muxRouter,
 		TLSConfig:    tlsConfig,
 		ReadTimeout:  5 * time.Minute,
 		WriteTimeout: 60 * time.Second,
 	}
 
-	log.Infof("server listening on port: %d", cfg.Port)
+	if logrusLevel == logrus.TraceLevel {
+		loggedRouter := handlers.LoggingHandler(log.Logger.Out, muxRouter)
+		server.Handler = loggedRouter
+	}
 
 	if cfg.CertFile != "" && cfg.PrivateKeyFile != "" {
+		log.Infof("listening on https://:%d", cfg.Port)
+		logrus.SetLevel(logrusLevel)
 		panic(server.ListenAndServeTLS(cfg.CertFile, cfg.PrivateKeyFile))
 	} else {
 		log.Warn("not using TLS")
+		log.Infof("listening on http://:%d", cfg.Port)
+		logrus.SetLevel(logrusLevel)
 		panic(server.ListenAndServe())
 	}
 }
