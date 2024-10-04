@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	server "github.com/openshift/console-dashboards-plugin/pkg/server"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -15,8 +14,7 @@ var (
 	keyArg                 = flag.String("key", "", "private key file path to enable TLS (disabled by default)")
 	staticPathArg          = flag.String("static-path", "", "static files path to serve frontend (default: './web/dist')")
 	dashboardsNamespaceArg = flag.String("dashboards-namespace", "", "namespace to watch for custom datasources for dashboards (default: 'openshift-config-managed')")
-	logLevel               = flag.String("loglevel", "info", "log level (default: info)")
-	log                    = logrus.WithField("module", "main")
+	logLevelArg            = flag.String("log-level", "error", "verbosity of logs\noptions: ['panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace']\n'trace' level will log all incoming requests\n(default 'error')")
 )
 
 func main() {
@@ -25,22 +23,16 @@ func main() {
 	port := mergeEnvValueInt("PORT", *portArg, 9004)
 	cert := mergeEnvValue("CERT_FILE_PATH", *certArg, "")
 	key := mergeEnvValue("PRIVATE_KEY_FILE_PATH", *keyArg, "")
-	staticPath := mergeEnvValue("STATIC_PATH", *staticPathArg, "./web/dist")
+	staticPath := mergeEnvValue("CONSOLE_DASHBOARDS_PLUGIN_STATIC_PATH", *staticPathArg, "./web/dist")
+	logLevel := mergeEnvValue("CONSOLE_DASHBOARDS_PLUGIN_LOG_LEVEL", *logLevelArg, "error")
 	dashboardsNamespace := mergeEnvValue("DASHBOARDS_NAMESPACE", *dashboardsNamespaceArg, "openshift-config-managed")
-
-	lvl, err := logrus.ParseLevel(*logLevel)
-	if err != nil {
-		log.Errorf("Log level %s not recognized, using info", *logLevel)
-		*logLevel = "info"
-		lvl = logrus.InfoLevel
-	}
-	logrus.SetLevel(lvl)
 
 	server.Start(&server.Config{
 		Port:                port,
 		CertFile:            cert,
 		PrivateKeyFile:      key,
 		StaticPath:          staticPath,
+		LogLevel:            logLevel,
 		DashboardsNamespace: dashboardsNamespace,
 	})
 }

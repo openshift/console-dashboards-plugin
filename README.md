@@ -54,3 +54,7 @@ See [add datasource docs](docs/add-datasource.md)
 2. Deploy the plugin on the cluster `helm upgrade -i console-dashboards-plugin charts/console-dashboards-plugin -n console-dashboards --create-namespace`
 3. Run `make example` to deploy a testing datasource connected to the in-cluster prometheus
 4. Go to the OpenShift console. Then from the navigation menu, select 'Observe.' This selection will drop down more options; click 'Dashboards.' You'll see the example dashboard named '** DASHBOARD EXAMPLE **.' 
+
+### Local Development Troubleshooting
+1. Disable cache. Select 'disable cache' in your browser's DevTools > Network > 'disable cache'. Or use private/incognito mode in your browser.
+2. Enable higher log verbosity by setting `-log-level=trace` when starting the plugin backend. For more options to set log level see [logrus documentation](https://github.com/sirupsen/logrus?tab=readme-ov-file#level-logging). 
