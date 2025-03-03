@@ -38,6 +38,12 @@ test-unit-backend:
 build-backend:
 	go build $(BUILD_OPTS) -o plugin-backend -mod=readonly cmd/plugin-backend.go
 
+# docker inspect --format '{{.Architecture}}' quay.io/redhat-cne/openshift-origin-release:rhel-9-golang-1.23-openshift-4.19
+# base image above has a arm64 archiecture; need to build executable /plugin-backend as amd64 to be match final container archiecture 
+.PHONY: build-backend-dev
+build-backend-dev:
+	GOARCH=amd64 GOOS=linux go build -mod=readonly -o plugin-backend -mod=readonly cmd/plugin-backend.go
+
 .PHONY: start-backend
 start-backend:
 	go run ./cmd/plugin-backend.go

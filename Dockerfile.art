@@ -24,7 +24,7 @@ RUN test -d ${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps || exit 1; \
     && source ${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps/cachito.env \
     && yarn && yarn build
 
-FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.22-openshift-4.17 AS go-builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.23-openshift-4.19 AS go-builder
 
 COPY $REMOTE_SOURCES $REMOTE_SOURCES_DIR
 WORKDIR /go/src/github.com/openshift/console-dashboards-plugin
