@@ -1,3 +1,8 @@
+VERSION     ?= latest
+PLATFORMS   ?= linux/arm64,linux/amd64
+ORG         ?= openshift-observability-ui
+IMAGE       ?= quay.io/${ORG}/console-dashboards-plugin:${VERSION}
+
 .PHONY: install-frontend
 install-frontend:
 	cd web && npm install
@@ -52,3 +57,9 @@ install: install-frontend install-backend
 .PHONY: example
 example:
 	cd docs && oc apply -f prometheus-datasource-example.yaml && oc apply -f prometheus-dashboard-example.yaml
+
+.PHONY: podman-cross-build
+podman-cross-build:
+	podman manifest create -a ${IMAGE}
+	podman build --platform=${PLATFORMS} --manifest ${IMAGE} -f Dockerfile.dev
+	podman manifest push ${IMAGE}
