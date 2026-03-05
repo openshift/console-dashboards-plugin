@@ -1,7 +1,7 @@
 VERSION     ?= latest
 PLATFORMS   ?= linux/arm64,linux/amd64
 ORG         ?= openshift-observability-ui
-IMAGE       ?= quay.io/${ORG}/console-dashboards-plugin:${VERSION}
+IMAGE		?= quay.io/${ORG}/console-dashboards-plugin:${VERSION}
 
 .PHONY: install-frontend
 install-frontend:
@@ -60,6 +60,7 @@ example:
 
 .PHONY: podman-cross-build
 podman-cross-build:
-	podman manifest create -a ${IMAGE}
+	podman manifest rm ${IMAGE} || true
+	podman manifest create ${IMAGE}
 	podman build --platform=${PLATFORMS} --manifest ${IMAGE} -f Dockerfile.dev
 	podman manifest push ${IMAGE}
