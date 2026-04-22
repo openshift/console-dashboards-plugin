@@ -14,9 +14,10 @@ import (
 
 	validator "github.com/asaskevich/govalidator"
 	"github.com/gorilla/mux"
-	datasources "github.com/openshift/console-dashboards-plugin/pkg/datasources"
 	oscrypto "github.com/openshift/library-go/pkg/crypto"
 	"github.com/sirupsen/logrus"
+
+	datasources "github.com/openshift/console-dashboards-plugin/pkg/datasources"
 )
 
 var log = logrus.WithField("module", "proxy")

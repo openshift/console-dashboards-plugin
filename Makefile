@@ -3,6 +3,10 @@ PLATFORMS   ?= linux/arm64,linux/amd64
 ORG         ?= openshift-observability-ui
 IMAGE		?= quay.io/${ORG}/console-dashboards-plugin:${VERSION}
 
+# Tools
+GOLANGCI_LINT = $(shell pwd)/_output/tools/bin/golangci-lint
+GOLANGCI_LINT_VERSION ?= v1.61.0
+
 .PHONY: install-frontend
 install-frontend:
 	cd web && npm install
@@ -30,6 +34,20 @@ start-console:
 .PHONY: lint-frontend
 lint-frontend:
 	cd web && npm run lint
+
+# Download and install golangci-lint if not already installed
+.PHONY: golangci-lint
+golangci-lint:
+	@[ -f $(GOLANGCI_LINT) ] || { \
+		set -e ;\
+		mkdir -p $(shell dirname $(GOLANGCI_LINT)) ;\
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell dirname $(GOLANGCI_LINT)) $(GOLANGCI_LINT_VERSION) ;\
+	}
+
+.PHONY: lint-backend
+lint-backend: golangci-lint
+	go mod tidy
+	$(GOLANGCI_LINT) -c $(shell pwd)/.golangci.yml run --verbose --fix
 
 .PHONY: install-backend
 install-backend:

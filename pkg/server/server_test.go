@@ -240,7 +240,11 @@ func getRequestResults(t *testing.T, httpClient *http.Client, url string) (strin
 }
 
 func checkHTTPReady(httpClient *http.Client, url string) {
-	for i := 0; i < 60; i++ {
+	checkHTTPReadyWithRetries(httpClient, url, 60)
+}
+
+func checkHTTPReadyWithRetries(httpClient *http.Client, url string, maxRetries int) {
+	for i := 0; i < maxRetries; i++ {
 		if r, err := httpClient.Get(url); err == nil {
 			r.Body.Close()
 			break
@@ -385,7 +389,20 @@ func TestTLSMinVersionConfiguration(t *testing.T) {
 		Start(conf)
 	}()
 
-	// Test that TLS 1.2 connections are rejected when minimum is set to TLS 1.3
+	// First, verify server is ready using a compatible TLS 1.3 client
+	httpConfigTLS13 := httpClientConfig{
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS13,
+		},
+	}
+	httpClientTLS13, err := httpConfigTLS13.buildHTTPClient()
+	require.NoError(t, err)
+
+	// Wait for server to be ready with compatible client
+	checkHTTPReady(httpClientTLS13, serverURL+"/status")
+
+	// Now test that TLS 1.2 connections are rejected when minimum is set to TLS 1.3
 	httpConfigTLS12 := httpClientConfig{
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true,
@@ -396,8 +413,7 @@ func TestTLSMinVersionConfiguration(t *testing.T) {
 	httpClientTLS12, err := httpConfigTLS12.buildHTTPClient()
 	require.NoError(t, err)
 
-	// This should fail because server requires TLS 1.3 minimum
-	checkHTTPReady(httpClientTLS12, serverURL+"/status")
+	// This should fail immediately because server requires TLS 1.3 minimum
 	if _, err = getRequestResults(t, httpClientTLS12, serverURL+"/health"); err == nil {
 		t.Fatalf("Expected TLS 1.2 connection to be rejected when server requires TLS 1.3")
 	}

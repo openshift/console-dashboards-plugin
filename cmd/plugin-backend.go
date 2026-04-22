@@ -7,9 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	server "github.com/openshift/console-dashboards-plugin/pkg/server"
 	"github.com/sirupsen/logrus"
 	k8sapiflag "k8s.io/component-base/cli/flag"
+
+	server "github.com/openshift/console-dashboards-plugin/pkg/server"
 )
 
 var (

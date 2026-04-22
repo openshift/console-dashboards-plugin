@@ -10,11 +10,12 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+	"k8s.io/apiserver/pkg/server/dynamiccertificates"
+
 	apiv1 "github.com/openshift/console-dashboards-plugin/pkg/api/v1"
 	datasources "github.com/openshift/console-dashboards-plugin/pkg/datasources"
 	proxy "github.com/openshift/console-dashboards-plugin/pkg/proxy"
-	"github.com/sirupsen/logrus"
-	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 )
 
 var log = logrus.WithField("module", "server")
@@ -26,8 +27,8 @@ type Config struct {
 	StaticPath          string
 	LogLevel            string
 	DashboardsNamespace string
-	TLSMinVersion    uint16
-	TLSCipherSuites  []uint16
+	TLSMinVersion       uint16
+	TLSCipherSuites     []uint16
 }
 
 func (c *Config) IsTLSEnabled() bool {
@@ -71,6 +72,7 @@ func (s *PluginServer) StartHTTPServer() error {
 		log.Infof("listening for https on %s", s.Server.Addr)
 		return s.Server.ListenAndServeTLS(s.Config.CertFile, s.Config.PrivateKeyFile)
 	}
+	log.Warn("not using TLS")
 	log.Infof("listening for http on %s", s.Server.Addr)
 	return s.Server.ListenAndServe()
 }
@@ -84,7 +86,6 @@ func (s *PluginServer) Shutdown(ctx context.Context) error {
 	}
 	return nil
 }
-
 
 func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 	datasourceManager := datasources.NewDatasourceManager()
@@ -137,9 +138,10 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 
 	logrusLevel, err := logrus.ParseLevel(cfg.LogLevel)
 	if err != nil {
-		logrus.WithError(err).Fatal("unable to set the log level")
+		logrus.WithError(err).Error("unable to set the log level, using default error level")
 		logrusLevel = logrus.ErrorLevel
 	}
+	logrus.SetLevel(logrusLevel)
 
 	server := http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
@@ -164,11 +166,11 @@ type headerPreservingWriter struct {
 
 func (w *headerPreservingWriter) WriteHeader(statusCode int) {
 	if !w.wroteHeader {
-		if w.Header().Get("Cache-Control") == "" {
-			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		if w.ResponseWriter.Header().Get("Cache-Control") == "" {
+			w.ResponseWriter.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		}
-		if w.Header().Get("Expires") == "" {
-			w.Header().Set("Expires", "0")
+		if w.ResponseWriter.Header().Get("Expires") == "" {
+			w.ResponseWriter.Header().Set("Expires", "0")
 		}
 		w.wroteHeader = true
 	}
