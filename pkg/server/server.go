@@ -70,6 +70,12 @@ func CreateServer(ctx context.Context, cfg *Config) (*PluginServer, error) {
 func (s *PluginServer) StartHTTPServer() error {
 	if s.Config.IsTLSEnabled() {
 		log.Infof("listening for https on %s", s.Server.Addr)
+		// Use GetCertificate callback from DynamicServingCertificateController
+		// for dynamic cert reload instead of static cert files
+		if s.Server.TLSConfig != nil && s.Server.TLSConfig.GetCertificate != nil {
+			return s.Server.ListenAndServeTLS("", "")
+		}
+		// Fallback to static certs if dynamic controller not set up
 		return s.Server.ListenAndServeTLS(s.Config.CertFile, s.Config.PrivateKeyFile)
 	}
 	log.Warn("not using TLS")
@@ -92,13 +98,7 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 
 	go datasourceManager.WatchDatasources(cfg.DashboardsNamespace)
 
-	muxRouter := mux.NewRouter()
-
-	muxRouter.PathPrefix("/health").HandlerFunc(healthHandler())
-	muxRouter.PathPrefix("/proxy/{datasourceName}/").HandlerFunc(proxy.CreateProxyHandler(cfg.CertFile, datasourceManager))
-	muxRouter.HandleFunc("/api/v1/datasources/{name}", apiv1.CreateDashboardsHandler(datasourceManager))
-	muxRouter.PathPrefix("/").Handler(filesHandler(http.Dir(cfg.StaticPath)))
-
+	// Configure TLS settings first
 	tlsConfig := &tls.Config{}
 
 	tlsEnabled := cfg.IsTLSEnabled()
@@ -113,7 +113,21 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 		if len(cfg.TLSCipherSuites) > 0 {
 			tlsConfig.CipherSuites = cfg.TLSCipherSuites
 		}
+	} else {
+		// Even for non-TLS servers, set reasonable defaults for proxy outbound connections
+		tlsConfig.MinVersion = tls.VersionTLS12
+	}
 
+	// Set up router with TLS-configured proxy handler
+	muxRouter := mux.NewRouter()
+
+	muxRouter.PathPrefix("/health").HandlerFunc(healthHandler())
+	muxRouter.PathPrefix("/proxy/{datasourceName}/").HandlerFunc(proxy.CreateProxyHandler(datasourceManager, tlsConfig))
+	muxRouter.HandleFunc("/api/v1/datasources/{name}", apiv1.CreateDashboardsHandler(datasourceManager))
+	muxRouter.PathPrefix("/").Handler(filesHandler(http.Dir(cfg.StaticPath)))
+
+	// Set up dynamic certificate reloading for server TLS if enabled
+	if tlsEnabled {
 		// Build and run the controller which reloads the certificate and key
 		// files whenever they change.
 		certKeyPair, err := dynamiccertificates.NewDynamicServingContentFromFiles("serving-cert", cfg.CertFile, cfg.PrivateKeyFile)

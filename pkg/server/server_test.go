@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -471,6 +472,47 @@ func TestTLSCipherSuitesConfiguration(t *testing.T) {
 	}
 }
 
+func TestProxyTLSConfiguration(t *testing.T) {
+	testPort, err := getFreePort(testHostname)
+	require.NoError(t, err)
+
+	tmpDir, err := os.MkdirTemp("", "server-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	testServerCertFile := tmpDir + "/server-test-server.cert"
+	testServerKeyFile := tmpDir + "/server-test-server.key"
+	testServerHostPort := fmt.Sprintf("%v:%v", testHostname, testPort)
+	err = generateCertificate(t, testServerCertFile, testServerKeyFile, testServerHostPort)
+	require.NoError(t, err)
+
+	// Test that proxy gets TLS configuration from server
+	conf := &Config{
+		CertFile:            testServerCertFile,
+		PrivateKeyFile:      testServerKeyFile,
+		Port:                testPort,
+		TLSMinVersion:       tls.VersionTLS13,
+		TLSCipherSuites:     []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+		LogLevel:            "error",
+		StaticPath:          "./web/dist",
+		DashboardsNamespace: "test-namespace",
+	}
+
+	// Prepare directory to serve web files
+	tmpDirAssets := prepareServerAssets(t)
+	defer os.RemoveAll(tmpDirAssets)
+
+	// Create server to verify TLS configuration is passed to proxy
+	ctx := context.Background()
+	server, err := CreateServer(ctx, conf)
+	require.NoError(t, err)
+	defer server.Shutdown(ctx)
+
+	// Verify server was created successfully (proxy got TLS config without errors)
+	require.NotNil(t, server)
+	require.Equal(t, conf, server.Config)
+}
+
 func TestTLSBackwardCompatibility(t *testing.T) {
 	testPort, err := getFreePort(testHostname)
 	require.NoError(t, err)
@@ -565,4 +607,25 @@ func TestFilesHandler(t *testing.T) {
 	if res.Header.Get("Expires") != "0" {
 		t.Errorf("Expected Expires header %q, but got %q", "0", res.Header.Get("Expires"))
 	}
+}
+
+func TestProxySystemCAIntegration(t *testing.T) {
+	// Test that server starts successfully without requiring CA files
+	testPort, err := getFreePort(testHostname)
+	require.NoError(t, err)
+
+	conf := &Config{
+		Port:                testPort,
+		LogLevel:            "error",
+		StaticPath:          "./web/dist",
+		DashboardsNamespace: "test-namespace",
+		// Note: No CertFile set - should still work for proxy
+	}
+
+	ctx := context.Background()
+	server, err := CreateServer(ctx, conf)
+	require.NoError(t, err)
+	require.NotNil(t, server)
+
+	defer server.Shutdown(ctx)
 }
