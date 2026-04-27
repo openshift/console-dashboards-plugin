@@ -70,12 +70,8 @@ func CreateServer(ctx context.Context, cfg *Config) (*PluginServer, error) {
 func (s *PluginServer) StartHTTPServer() error {
 	if s.Config.IsTLSEnabled() {
 		log.Infof("listening for https on %s", s.Server.Addr)
-		// Use GetCertificate callback from DynamicServingCertificateController
-		// for dynamic cert reload instead of static cert files
-		if s.Server.TLSConfig != nil && s.Server.TLSConfig.GetCertificate != nil {
-			return s.Server.ListenAndServeTLS("", "")
-		}
-		// Fallback to static certs if dynamic controller not set up
+		log.Infof("TLS config - MinVersion: %d, CipherSuites: %d configured", s.Server.TLSConfig.MinVersion, len(s.Server.TLSConfig.CipherSuites))
+		log.Info("Using dynamic certificate controller for TLS")
 		return s.Server.ListenAndServeTLS(s.Config.CertFile, s.Config.PrivateKeyFile)
 	}
 	log.Warn("not using TLS")
@@ -126,7 +122,7 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 	muxRouter.HandleFunc("/api/v1/datasources/{name}", apiv1.CreateDashboardsHandler(datasourceManager))
 	muxRouter.PathPrefix("/").Handler(filesHandler(http.Dir(cfg.StaticPath)))
 
-	// Set up dynamic certificate reloading for server TLS if enabled
+	// Set up dynamic certificate reloading for server TLS if enabled (monitoring-plugin approach)
 	if tlsEnabled {
 		// Build and run the controller which reloads the certificate and key
 		// files whenever they change.
@@ -134,6 +130,12 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 		if err != nil {
 			logrus.WithError(err).Fatal("unable to create TLS controller")
 		}
+
+		// Initialize cert/key content once to validate files
+		if err := certKeyPair.RunOnce(ctx); err != nil {
+			logrus.WithError(err).Fatal("invalid certificate/key files")
+		}
+
 		ctrl := dynamiccertificates.NewDynamicServingCertificateController(
 			tlsConfig,
 			nil,
@@ -142,12 +144,16 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 			nil,
 		)
 
-		// Check that the cert and key files are valid.
-		if err := ctrl.RunOnce(); err != nil {
-			logrus.WithError(err).Fatal("invalid certificate/key files")
-		}
+		// Configure the server to use the cert/key pair for all client connections.
+		// This is the monitoring-plugin approach: use GetConfigForClient instead of GetCertificate
+		tlsConfig.GetConfigForClient = ctrl.GetConfigForClient
 
+		// Notify cert/key file changes to the controller.
+		certKeyPair.AddListener(ctrl)
+
+		// Start certificate controllers in background
 		go ctrl.Run(1, ctx.Done())
+		go certKeyPair.Run(ctx, 1)
 	}
 
 	logrusLevel, err := logrus.ParseLevel(cfg.LogLevel)
