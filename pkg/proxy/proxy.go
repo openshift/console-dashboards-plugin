@@ -62,13 +62,11 @@ func getProxy(datasourceName string, datasourceManager *datasources.DatasourceMa
 		log.Debugf("Using datasource-specific CA for '%s'", datasourceName)
 	} else {
 		log.Debugf("No datasource-specific CA for '%s', using system CA bundle", datasourceName)
-		// serviceCertPEM remains nil - will use system CA bundle
 	}
 
 	var serviceProxyRootCAs *x509.CertPool
 
 	if len(serviceCertPEM) > 0 {
-		// Use datasource-specific CA
 		serviceProxyRootCAs = x509.NewCertPool()
 		if !serviceProxyRootCAs.AppendCertsFromPEM(serviceCertPEM) {
 			log.Errorf("Invalid CA certificate for datasource '%s'", datasourceName)
@@ -76,16 +74,13 @@ func getProxy(datasourceName string, datasourceManager *datasources.DatasourceMa
 		}
 		log.Debugf("Using custom CA pool for datasource '%s'", datasourceName)
 	} else {
-		// Use system CA bundle (nil means system default)
 		serviceProxyRootCAs = nil
 		log.Debugf("Using system CA bundle for datasource '%s'", datasourceName)
 	}
-	// Build proxy TLS config with provided TLS settings
 	proxyTLSBaseConfig := &tls.Config{
 		RootCAs: serviceProxyRootCAs,
 	}
 
-	// Apply TLS configuration if provided
 	if tlsConfig != nil {
 		if tlsConfig.MinVersion != 0 {
 			proxyTLSBaseConfig.MinVersion = tlsConfig.MinVersion

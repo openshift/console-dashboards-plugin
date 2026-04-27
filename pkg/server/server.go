@@ -94,7 +94,6 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 
 	go datasourceManager.WatchDatasources(cfg.DashboardsNamespace)
 
-	// Configure TLS settings first
 	tlsConfig := &tls.Config{}
 
 	tlsEnabled := cfg.IsTLSEnabled()
@@ -110,11 +109,9 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 			tlsConfig.CipherSuites = cfg.TLSCipherSuites
 		}
 	} else {
-		// Even for non-TLS servers, set reasonable defaults for proxy outbound connections
 		tlsConfig.MinVersion = tls.VersionTLS12
 	}
 
-	// Set up router with TLS-configured proxy handler
 	muxRouter := mux.NewRouter()
 
 	muxRouter.PathPrefix("/health").HandlerFunc(healthHandler())
@@ -122,7 +119,6 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 	muxRouter.HandleFunc("/api/v1/datasources/{name}", apiv1.CreateDashboardsHandler(datasourceManager))
 	muxRouter.PathPrefix("/").Handler(filesHandler(http.Dir(cfg.StaticPath)))
 
-	// Set up dynamic certificate reloading for server TLS if enabled (monitoring-plugin approach)
 	if tlsEnabled {
 		// Build and run the controller which reloads the certificate and key
 		// files whenever they change.
@@ -131,7 +127,6 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 			logrus.WithError(err).Fatal("unable to create TLS controller")
 		}
 
-		// Initialize cert/key content once to validate files
 		if err := certKeyPair.RunOnce(ctx); err != nil {
 			logrus.WithError(err).Fatal("invalid certificate/key files")
 		}
@@ -144,14 +139,10 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 			nil,
 		)
 
-		// Configure the server to use the cert/key pair for all client connections.
-		// This is the monitoring-plugin approach: use GetConfigForClient instead of GetCertificate
 		tlsConfig.GetConfigForClient = ctrl.GetConfigForClient
 
-		// Notify cert/key file changes to the controller.
 		certKeyPair.AddListener(ctrl)
 
-		// Start certificate controllers in background
 		go ctrl.Run(1, ctx.Done())
 		go certKeyPair.Run(ctx, 1)
 	}

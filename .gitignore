@@ -3,3 +3,4 @@ web/dist/
 .vscode
 plugin-backend
 __debug_bin
+.claude

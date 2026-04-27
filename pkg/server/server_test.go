@@ -486,7 +486,6 @@ func TestProxyTLSConfiguration(t *testing.T) {
 	err = generateCertificate(t, testServerCertFile, testServerKeyFile, testServerHostPort)
 	require.NoError(t, err)
 
-	// Test that proxy gets TLS configuration from server
 	conf := &Config{
 		CertFile:            testServerCertFile,
 		PrivateKeyFile:      testServerKeyFile,
@@ -498,17 +497,14 @@ func TestProxyTLSConfiguration(t *testing.T) {
 		DashboardsNamespace: "test-namespace",
 	}
 
-	// Prepare directory to serve web files
 	tmpDirAssets := prepareServerAssets(t)
 	defer os.RemoveAll(tmpDirAssets)
 
-	// Create server to verify TLS configuration is passed to proxy
 	ctx := context.Background()
 	server, err := CreateServer(ctx, conf)
 	require.NoError(t, err)
 	defer server.Shutdown(ctx)
 
-	// Verify server was created successfully (proxy got TLS config without errors)
 	require.NotNil(t, server)
 	require.Equal(t, conf, server.Config)
 }
@@ -610,7 +606,6 @@ func TestFilesHandler(t *testing.T) {
 }
 
 func TestProxySystemCAIntegration(t *testing.T) {
-	// Test that server starts successfully without requiring CA files
 	testPort, err := getFreePort(testHostname)
 	require.NoError(t, err)
 
@@ -619,7 +614,6 @@ func TestProxySystemCAIntegration(t *testing.T) {
 		LogLevel:            "error",
 		StaticPath:          "./web/dist",
 		DashboardsNamespace: "test-namespace",
-		// Note: No CertFile set - should still work for proxy
 	}
 
 	ctx := context.Background()
