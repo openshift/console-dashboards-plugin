@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+
 	datasources "github.com/openshift/console-dashboards-plugin/pkg/datasources"
 )
 

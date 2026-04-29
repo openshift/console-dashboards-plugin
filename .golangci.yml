@@ -1,0 +1,19 @@
+run:
+  timeout: 5m
+  go: "1.23"
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - goimports
+    - gci
+    - misspell
+
+linters-settings:
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/openshift/console-dashboards-plugin)
+    custom-order: true
