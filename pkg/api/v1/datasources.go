@@ -6,8 +6,9 @@ import (
 
 	validator "github.com/asaskevich/govalidator"
 	"github.com/gorilla/mux"
-	"github.com/openshift/console-dashboards-plugin/pkg/datasources"
 	"github.com/sirupsen/logrus"
+
+	"github.com/openshift/console-dashboards-plugin/pkg/datasources"
 )
 
 var log = logrus.WithField("module", "datasources-api")
