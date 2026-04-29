@@ -20,6 +20,108 @@ import (
 
 var log = logrus.WithField("module", "server")
 
+func tlsVersionToString(version uint16) string {
+	switch version {
+	case tls.VersionTLS10:
+		return "TLS 1.0"
+	case tls.VersionTLS11:
+		return "TLS 1.1"
+	case tls.VersionTLS12:
+		return "TLS 1.2"
+	case tls.VersionTLS13:
+		return "TLS 1.3"
+	default:
+		return fmt.Sprintf("Unknown(0x%04x)", version)
+	}
+}
+
+func cipherSuitesToStrings(cipherSuites []uint16) []string {
+	if len(cipherSuites) == 0 {
+		return nil
+	}
+
+	lookup := make(map[uint16]string)
+
+	for _, suite := range tls.CipherSuites() {
+		lookup[suite.ID] = suite.Name
+	}
+
+	for _, suite := range tls.InsecureCipherSuites() {
+		lookup[suite.ID] = suite.Name
+	}
+
+	names := make([]string, len(cipherSuites))
+	for i, id := range cipherSuites {
+		if name, exists := lookup[id]; exists {
+			names[i] = name
+		} else {
+			names[i] = fmt.Sprintf("Unknown(0x%04x)", id)
+		}
+	}
+
+	return names
+}
+
+func validateAndGetTLSMinVersion(cfg *Config) (uint16, error) {
+	if cfg.TLSMinVersion == 0 {
+		return tls.VersionTLS12, nil
+	}
+
+	if cfg.TLSMinVersion < tls.VersionTLS10 || cfg.TLSMinVersion > tls.VersionTLS13 {
+		return 0, fmt.Errorf("invalid TLS min version %d: must be between TLS 1.0 (%d) and TLS 1.3 (%d)",
+			cfg.TLSMinVersion, tls.VersionTLS10, tls.VersionTLS13)
+	}
+
+	return cfg.TLSMinVersion, nil
+}
+
+func validateAndGetTLSCipherSuites(cfg *Config) ([]uint16, error) {
+	if len(cfg.TLSCipherSuites) == 0 {
+		return nil, nil
+	}
+
+	supportedSuites := tls.CipherSuites()
+	supportedMap := make(map[uint16]bool)
+	for _, suite := range supportedSuites {
+		supportedMap[suite.ID] = true
+	}
+
+	insecureSuites := tls.InsecureCipherSuites()
+	for _, suite := range insecureSuites {
+		supportedMap[suite.ID] = true
+	}
+
+	for _, suite := range cfg.TLSCipherSuites {
+		if !supportedMap[suite] {
+			return nil, fmt.Errorf("unsupported cipher suite: 0x%04x", suite)
+		}
+	}
+
+	return cfg.TLSCipherSuites, nil
+}
+
+func extractValidatedTLSParams(cfg *Config) (serverMinVersion uint16, serverCipherSuites []uint16, proxyMinVersion uint16, proxyCipherSuites []uint16, err error) {
+	serverMinVersion, err = validateAndGetTLSMinVersion(cfg)
+	if err != nil {
+		return 0, nil, 0, nil, fmt.Errorf("server TLS min version validation failed: %w", err)
+	}
+
+	serverCipherSuites, err = validateAndGetTLSCipherSuites(cfg)
+	if err != nil {
+		return 0, nil, 0, nil, fmt.Errorf("server TLS cipher suites validation failed: %w", err)
+	}
+
+	proxyMinVersion = serverMinVersion
+	if serverCipherSuites != nil {
+		proxyCipherSuites = make([]uint16, len(serverCipherSuites))
+		copy(proxyCipherSuites, serverCipherSuites)
+	} else {
+		proxyCipherSuites = nil
+	}
+
+	return serverMinVersion, serverCipherSuites, proxyMinVersion, proxyCipherSuites, nil
+}
+
 type Config struct {
 	Port                int
 	CertFile            string
@@ -70,6 +172,8 @@ func CreateServer(ctx context.Context, cfg *Config) (*PluginServer, error) {
 func (s *PluginServer) StartHTTPServer() error {
 	if s.Config.IsTLSEnabled() {
 		log.Infof("listening for https on %s", s.Server.Addr)
+		log.Infof("TLS config - MinVersion: %d, CipherSuites: %d configured", s.Server.TLSConfig.MinVersion, len(s.Server.TLSConfig.CipherSuites))
+		log.Info("Using dynamic certificate controller for TLS")
 		return s.Server.ListenAndServeTLS(s.Config.CertFile, s.Config.PrivateKeyFile)
 	}
 	log.Warn("not using TLS")
@@ -92,34 +196,47 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 
 	go datasourceManager.WatchDatasources(cfg.DashboardsNamespace)
 
-	muxRouter := mux.NewRouter()
+	serverMinVersion, serverCipherSuites, proxyMinVersion, proxyCipherSuites, err := extractValidatedTLSParams(cfg)
+	if err != nil {
+		logrus.WithError(err).Fatal("invalid TLS configuration")
+	}
 
-	muxRouter.PathPrefix("/health").HandlerFunc(healthHandler())
-	muxRouter.PathPrefix("/proxy/{datasourceName}/").HandlerFunc(proxy.CreateProxyHandler(cfg.CertFile, datasourceManager))
-	muxRouter.HandleFunc("/api/v1/datasources/{name}", apiv1.CreateDashboardsHandler(datasourceManager))
-	muxRouter.PathPrefix("/").Handler(filesHandler(http.Dir(cfg.StaticPath)))
-
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{
+		MinVersion:   serverMinVersion,
+		CipherSuites: serverCipherSuites,
+	}
 
 	tlsEnabled := cfg.IsTLSEnabled()
 	if tlsEnabled {
-		// Set MinVersion - default to TLS 1.2 if not specified
-		if cfg.TLSMinVersion != 0 {
-			tlsConfig.MinVersion = cfg.TLSMinVersion
+		cipherNames := cipherSuitesToStrings(serverCipherSuites)
+		if len(cipherNames) > 0 {
+			log.Infof("TLS enabled with MinVersion: %s, CipherSuites: %v", tlsVersionToString(serverMinVersion), cipherNames)
 		} else {
-			tlsConfig.MinVersion = tls.VersionTLS12
+			log.Infof("TLS enabled with MinVersion: %s, CipherSuites: [default]", tlsVersionToString(serverMinVersion))
 		}
+	} else {
+		log.Infof("TLS disabled for server, but using %s for proxy outbound connections", tlsVersionToString(proxyMinVersion))
+	}
 
-		if len(cfg.TLSCipherSuites) > 0 {
-			tlsConfig.CipherSuites = cfg.TLSCipherSuites
-		}
+	muxRouter := mux.NewRouter()
 
+	muxRouter.PathPrefix("/health").HandlerFunc(healthHandler())
+	muxRouter.PathPrefix("/proxy/{datasourceName}/").HandlerFunc(proxy.CreateProxyHandler(datasourceManager, proxyMinVersion, proxyCipherSuites))
+	muxRouter.HandleFunc("/api/v1/datasources/{name}", apiv1.CreateDashboardsHandler(datasourceManager))
+	muxRouter.PathPrefix("/").Handler(filesHandler(http.Dir(cfg.StaticPath)))
+
+	if tlsEnabled {
 		// Build and run the controller which reloads the certificate and key
 		// files whenever they change.
 		certKeyPair, err := dynamiccertificates.NewDynamicServingContentFromFiles("serving-cert", cfg.CertFile, cfg.PrivateKeyFile)
 		if err != nil {
 			logrus.WithError(err).Fatal("unable to create TLS controller")
 		}
+
+		if err := certKeyPair.RunOnce(ctx); err != nil {
+			logrus.WithError(err).Fatal("invalid certificate/key files")
+		}
+
 		ctrl := dynamiccertificates.NewDynamicServingCertificateController(
 			tlsConfig,
 			nil,
@@ -128,12 +245,12 @@ func createHTTPServer(ctx context.Context, cfg *Config) (*http.Server, error) {
 			nil,
 		)
 
-		// Check that the cert and key files are valid.
-		if err := ctrl.RunOnce(); err != nil {
-			logrus.WithError(err).Fatal("invalid certificate/key files")
-		}
+		tlsConfig.GetConfigForClient = ctrl.GetConfigForClient
+
+		certKeyPair.AddListener(ctrl)
 
 		go ctrl.Run(1, ctx.Done())
+		go certKeyPair.Run(ctx, 1)
 	}
 
 	logrusLevel, err := logrus.ParseLevel(cfg.LogLevel)

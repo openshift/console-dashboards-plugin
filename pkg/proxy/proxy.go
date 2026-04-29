@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"time"
 
 	validator "github.com/asaskevich/govalidator"
@@ -42,7 +41,7 @@ func FilterHeaders(r *http.Response) error {
 	return nil
 }
 
-func getProxy(datasourceName string, serviceCAfile string, datasourceManager *datasources.DatasourceManager) *httputil.ReverseProxy {
+func getProxy(datasourceName string, datasourceManager *datasources.DatasourceManager, tlsMinVersion uint16, tlsCipherSuites []uint16) *httputil.ReverseProxy {
 	existingProxy := datasourceManager.GetProxy(datasourceName)
 
 	if existingProxy != nil {
@@ -57,31 +56,52 @@ func getProxy(datasourceName string, serviceCAfile string, datasourceManager *da
 
 	ca := datasourceManager.GetCA(datasourceName)
 	var serviceCertPEM []byte
-	var err error
 
 	if ca != nil && len(*ca) > 0 {
 		serviceCertPEM = []byte(*ca)
+		log.Debugf("Using datasource-specific CA for '%s'", datasourceName)
 	} else {
-		serviceCertPEM, err = os.ReadFile(serviceCAfile)
-		if err != nil {
-			log.Errorf("failed to read certificate file: tried '%s' and got %v", serviceCAfile, err)
+		log.Debugf("No datasource-specific CA for '%s', using system CA bundle", datasourceName)
+	}
+
+	var serviceProxyRootCAs *x509.CertPool
+
+	if len(serviceCertPEM) > 0 {
+		serviceProxyRootCAs = x509.NewCertPool()
+		if !serviceProxyRootCAs.AppendCertsFromPEM(serviceCertPEM) {
+			log.Errorf("Invalid CA certificate for datasource '%s'", datasourceName)
 			return nil
 		}
+		log.Debugf("Using custom CA pool for datasource '%s'", datasourceName)
+	} else {
+		serviceProxyRootCAs = nil
+		log.Debugf("Using system CA bundle for datasource '%s'", datasourceName)
 	}
-
-	if len(serviceCertPEM) == 0 {
-		log.Errorf("no certificate provided. Proxy to datasource '%s' will fail", datasourceName)
-		return nil
-	}
-
-	serviceProxyRootCAs := x509.NewCertPool()
-	if !serviceProxyRootCAs.AppendCertsFromPEM(serviceCertPEM) {
-		log.Errorf("no CA found or is invalid. Proxy to datasource '%s' will fail", datasourceName)
-		return nil
-	}
-	serviceProxyTLSConfig := oscrypto.SecureTLSConfig(&tls.Config{
+	proxyTLSBaseConfig := &tls.Config{
 		RootCAs: serviceProxyRootCAs,
-	})
+	}
+
+	if tlsMinVersion != 0 {
+		if tlsMinVersion >= tls.VersionTLS10 && tlsMinVersion <= tls.VersionTLS13 {
+			proxyTLSBaseConfig.MinVersion = tlsMinVersion
+			log.Debugf("Proxy using TLS MinVersion: 0x%04x for datasource '%s'", tlsMinVersion, datasourceName)
+		} else {
+			log.Warnf("Invalid TLS MinVersion 0x%04x for datasource '%s', using default TLS 1.2", tlsMinVersion, datasourceName)
+			proxyTLSBaseConfig.MinVersion = tls.VersionTLS12
+		}
+	} else {
+		proxyTLSBaseConfig.MinVersion = tls.VersionTLS12
+		log.Debugf("Using default TLS 1.2 for datasource '%s'", datasourceName)
+	}
+
+	if len(tlsCipherSuites) > 0 {
+		proxyTLSBaseConfig.CipherSuites = tlsCipherSuites
+		log.Debugf("Proxy using %d cipher suites for datasource '%s'", len(tlsCipherSuites), datasourceName)
+	} else {
+		log.Debugf("Using default cipher suites for datasource '%s'", datasourceName)
+	}
+
+	serviceProxyTLSConfig := oscrypto.SecureTLSConfig(proxyTLSBaseConfig)
 
 	const (
 		dialerKeepalive       = 30 * time.Second
@@ -121,7 +141,7 @@ func getProxy(datasourceName string, serviceCAfile string, datasourceManager *da
 	}
 }
 
-func CreateProxyHandler(serviceCAfile string, datasourceManager *datasources.DatasourceManager) func(http.ResponseWriter, *http.Request) {
+func CreateProxyHandler(datasourceManager *datasources.DatasourceManager, tlsMinVersion uint16, tlsCipherSuites []uint16) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		datasourceName := vars["datasourceName"]
@@ -138,7 +158,7 @@ func CreateProxyHandler(serviceCAfile string, datasourceManager *datasources.Dat
 			return
 		}
 
-		datasourceProxy := getProxy(datasourceName, serviceCAfile, datasourceManager)
+		datasourceProxy := getProxy(datasourceName, datasourceManager, tlsMinVersion, tlsCipherSuites)
 
 		if datasourceProxy == nil {
 			log.Errorf("cannot proxy request, invalid datasource proxy: %s", datasourceName)

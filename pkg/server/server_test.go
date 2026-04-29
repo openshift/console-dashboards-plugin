@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -21,6 +22,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/openshift/console-dashboards-plugin/pkg/datasources"
+	"github.com/openshift/console-dashboards-plugin/pkg/proxy"
 )
 
 type httpClientConfig struct {
@@ -471,6 +475,43 @@ func TestTLSCipherSuitesConfiguration(t *testing.T) {
 	}
 }
 
+func TestServerCreationWithTLSConfiguration(t *testing.T) {
+	testPort, err := getFreePort(testHostname)
+	require.NoError(t, err)
+
+	tmpDir, err := os.MkdirTemp("", "server-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	testServerCertFile := tmpDir + "/server-test-server.cert"
+	testServerKeyFile := tmpDir + "/server-test-server.key"
+	testServerHostPort := fmt.Sprintf("%v:%v", testHostname, testPort)
+	err = generateCertificate(t, testServerCertFile, testServerKeyFile, testServerHostPort)
+	require.NoError(t, err)
+
+	conf := &Config{
+		CertFile:            testServerCertFile,
+		PrivateKeyFile:      testServerKeyFile,
+		Port:                testPort,
+		TLSMinVersion:       tls.VersionTLS13,
+		TLSCipherSuites:     []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+		LogLevel:            "error",
+		StaticPath:          "./web/dist",
+		DashboardsNamespace: "test-namespace",
+	}
+
+	tmpDirAssets := prepareServerAssets(t)
+	defer os.RemoveAll(tmpDirAssets)
+
+	ctx := context.Background()
+	server, err := CreateServer(ctx, conf)
+	require.NoError(t, err)
+	defer server.Shutdown(ctx)
+
+	require.NotNil(t, server)
+	require.Equal(t, conf, server.Config)
+}
+
 func TestTLSBackwardCompatibility(t *testing.T) {
 	testPort, err := getFreePort(testHostname)
 	require.NoError(t, err)
@@ -564,5 +605,355 @@ func TestFilesHandler(t *testing.T) {
 	}
 	if res.Header.Get("Expires") != "0" {
 		t.Errorf("Expected Expires header %q, but got %q", "0", res.Header.Get("Expires"))
+	}
+}
+
+func TestProxySystemCAIntegration(t *testing.T) {
+	testPort, err := getFreePort(testHostname)
+	require.NoError(t, err)
+
+	conf := &Config{
+		Port:                testPort,
+		LogLevel:            "error",
+		StaticPath:          "./web/dist",
+		DashboardsNamespace: "test-namespace",
+	}
+
+	ctx := context.Background()
+	server, err := CreateServer(ctx, conf)
+	require.NoError(t, err)
+	require.NotNil(t, server)
+
+	defer server.Shutdown(ctx)
+}
+
+func TestServerProxyTLSIndependence(t *testing.T) {
+	testPort, err := getFreePort(testHostname)
+	require.NoError(t, err)
+
+	tmpDir, err := os.MkdirTemp("", "server-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	testServerCertFile := tmpDir + "/server-test-server.cert"
+	testServerKeyFile := tmpDir + "/server-test-server.key"
+	testServerHostPort := fmt.Sprintf("%v:%v", testHostname, testPort)
+	err = generateCertificate(t, testServerCertFile, testServerKeyFile, testServerHostPort)
+	require.NoError(t, err)
+
+	conf := &Config{
+		CertFile:            testServerCertFile,
+		PrivateKeyFile:      testServerKeyFile,
+		Port:                testPort,
+		TLSMinVersion:       tls.VersionTLS12,
+		TLSCipherSuites:     []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
+		LogLevel:            "error",
+		StaticPath:          "./web/dist",
+		DashboardsNamespace: "test-namespace",
+	}
+
+	tmpDirAssets := prepareServerAssets(t)
+	defer os.RemoveAll(tmpDirAssets)
+
+	ctx := context.Background()
+	server, err := CreateServer(ctx, conf)
+	require.NoError(t, err)
+	defer server.Shutdown(ctx)
+
+	require.NotNil(t, server)
+	require.Equal(t, conf.TLSMinVersion, server.Config.TLSMinVersion)
+	require.Equal(t, conf.TLSCipherSuites, server.Config.TLSCipherSuites)
+
+	datasourceManager := datasources.NewDatasourceManager()
+
+	proxyHandler13 := proxy.CreateProxyHandler(datasourceManager, uint16(tls.VersionTLS13), nil)
+	require.NotNil(t, proxyHandler13)
+
+	differentCipherSuite := []uint16{tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384}
+	proxyHandlerDifferent := proxy.CreateProxyHandler(datasourceManager, uint16(tls.VersionTLS12), differentCipherSuite)
+	require.NotNil(t, proxyHandlerDifferent)
+
+	require.NotSame(t, proxyHandler13, proxyHandlerDifferent, "Proxy handlers should be independent instances")
+}
+
+func TestValidateAndGetTLSMinVersion(t *testing.T) {
+	tests := []struct {
+		name          string
+		tlsMinVersion uint16
+		expectError   bool
+		expected      uint16
+	}{
+		{
+			name:          "Zero value returns TLS 1.2 default",
+			tlsMinVersion: 0,
+			expectError:   false,
+			expected:      tls.VersionTLS12,
+		},
+		{
+			name:          "Valid TLS 1.2",
+			tlsMinVersion: tls.VersionTLS12,
+			expectError:   false,
+			expected:      tls.VersionTLS12,
+		},
+		{
+			name:          "Valid TLS 1.3",
+			tlsMinVersion: tls.VersionTLS13,
+			expectError:   false,
+			expected:      tls.VersionTLS13,
+		},
+		{
+			name:          "Invalid too low version",
+			tlsMinVersion: 0x0200, // Below TLS 1.0
+			expectError:   true,
+			expected:      0,
+		},
+		{
+			name:          "Invalid too high version",
+			tlsMinVersion: 0x0500, // Above TLS 1.3
+			expectError:   true,
+			expected:      0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{TLSMinVersion: tt.tlsMinVersion}
+
+			result, err := validateAndGetTLSMinVersion(cfg)
+
+			if tt.expectError {
+				require.Error(t, err, "Expected validation error for TLS min version %d", tt.tlsMinVersion)
+				require.Equal(t, uint16(0), result, "Expected zero result on validation error")
+			} else {
+				require.NoError(t, err, "Expected no validation error for TLS min version %d", tt.tlsMinVersion)
+				require.Equal(t, tt.expected, result, "Expected TLS min version %d, got %d", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestValidateAndGetTLSCipherSuites(t *testing.T) {
+	// Get valid cipher suites for testing
+	supportedSuites := tls.CipherSuites()
+	require.Greater(t, len(supportedSuites), 0, "Expected at least one supported cipher suite")
+
+	validSuite1 := supportedSuites[0].ID
+	var validSuite2 uint16
+	if len(supportedSuites) > 1 {
+		validSuite2 = supportedSuites[1].ID
+	} else {
+		validSuite2 = validSuite1 // Use same if only one available
+	}
+
+	tests := []struct {
+		name            string
+		tlsCipherSuites []uint16
+		expectError     bool
+		expected        []uint16
+	}{
+		{
+			name:            "Empty slice returns nil",
+			tlsCipherSuites: []uint16{},
+			expectError:     false,
+			expected:        nil,
+		},
+		{
+			name:            "Nil slice returns nil",
+			tlsCipherSuites: nil,
+			expectError:     false,
+			expected:        nil,
+		},
+		{
+			name:            "Valid single cipher suite",
+			tlsCipherSuites: []uint16{validSuite1},
+			expectError:     false,
+			expected:        []uint16{validSuite1},
+		},
+		{
+			name:            "Valid multiple cipher suites",
+			tlsCipherSuites: []uint16{validSuite1, validSuite2},
+			expectError:     false,
+			expected:        []uint16{validSuite1, validSuite2},
+		},
+		{
+			name:            "Invalid cipher suite",
+			tlsCipherSuites: []uint16{0x9999}, // Invalid cipher suite
+			expectError:     true,
+			expected:        nil,
+		},
+		{
+			name:            "Mix of valid and invalid cipher suites",
+			tlsCipherSuites: []uint16{validSuite1, 0x9999},
+			expectError:     true,
+			expected:        nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{TLSCipherSuites: tt.tlsCipherSuites}
+
+			result, err := validateAndGetTLSCipherSuites(cfg)
+
+			if tt.expectError {
+				require.Error(t, err, "Expected validation error for cipher suites %v", tt.tlsCipherSuites)
+				require.Nil(t, result, "Expected nil result on validation error")
+			} else {
+				require.NoError(t, err, "Expected no validation error for cipher suites %v", tt.tlsCipherSuites)
+				require.Equal(t, tt.expected, result, "Expected cipher suites %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestExtractValidatedTLSParams(t *testing.T) {
+	supportedSuites := tls.CipherSuites()
+	require.Greater(t, len(supportedSuites), 0, "Expected at least one supported cipher suite")
+	validSuite := supportedSuites[0].ID
+
+	tests := []struct {
+		name              string
+		config            *Config
+		expectError       bool
+		expectedServerMin uint16
+		expectedProxyMin  uint16
+	}{
+		{
+			name: "Default configuration",
+			config: &Config{
+				TLSMinVersion:   0,
+				TLSCipherSuites: nil,
+			},
+			expectError:       false,
+			expectedServerMin: tls.VersionTLS12,
+			expectedProxyMin:  tls.VersionTLS12,
+		},
+		{
+			name: "Valid TLS 1.3 configuration",
+			config: &Config{
+				TLSMinVersion:   tls.VersionTLS13,
+				TLSCipherSuites: []uint16{validSuite},
+			},
+			expectError:       false,
+			expectedServerMin: tls.VersionTLS13,
+			expectedProxyMin:  tls.VersionTLS13,
+		},
+		{
+			name: "Invalid TLS min version",
+			config: &Config{
+				TLSMinVersion:   0x9999, // Invalid version
+				TLSCipherSuites: []uint16{validSuite},
+			},
+			expectError:       true,
+			expectedServerMin: 0,
+			expectedProxyMin:  0,
+		},
+		{
+			name: "Invalid cipher suite",
+			config: &Config{
+				TLSMinVersion:   tls.VersionTLS12,
+				TLSCipherSuites: []uint16{0x9999}, // Invalid cipher suite
+			},
+			expectError:       true,
+			expectedServerMin: 0,
+			expectedProxyMin:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			serverMin, serverCiphers, proxyMin, proxyCiphers, err := extractValidatedTLSParams(tt.config)
+
+			if tt.expectError {
+				require.Error(t, err, "Expected validation error for config %+v", tt.config)
+			} else {
+				require.NoError(t, err, "Expected no validation error for config %+v", tt.config)
+				require.Equal(t, tt.expectedServerMin, serverMin, "Server MinVersion mismatch")
+				require.Equal(t, tt.expectedProxyMin, proxyMin, "Proxy MinVersion mismatch")
+
+				require.Equal(t, serverCiphers, proxyCiphers, "Server and proxy cipher suites should be equal")
+				if len(tt.config.TLSCipherSuites) > 0 {
+					require.NotSame(t, &serverCiphers[0], &proxyCiphers[0], "Server and proxy cipher suites should be independent slices")
+				}
+			}
+		})
+	}
+}
+
+func TestTlsVersionToString(t *testing.T) {
+	tests := []struct {
+		name     string
+		version  uint16
+		expected string
+	}{
+		{"TLS 1.0", tls.VersionTLS10, "TLS 1.0"},
+		{"TLS 1.1", tls.VersionTLS11, "TLS 1.1"},
+		{"TLS 1.2", tls.VersionTLS12, "TLS 1.2"},
+		{"TLS 1.3", tls.VersionTLS13, "TLS 1.3"},
+		{"Unknown version", 0x9999, "Unknown(0x9999)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tlsVersionToString(tt.version)
+			require.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCipherSuitesToStrings(t *testing.T) {
+	supportedSuites := tls.CipherSuites()
+	require.Greater(t, len(supportedSuites), 0, "Expected at least one supported cipher suite")
+
+	validSuite := supportedSuites[0]
+
+	tests := []struct {
+		name        string
+		cipherIDs   []uint16
+		expectEmpty bool
+		checkFirst  bool
+		firstName   string
+	}{
+		{
+			name:        "Empty slice returns nil",
+			cipherIDs:   []uint16{},
+			expectEmpty: true,
+		},
+		{
+			name:        "Nil slice returns nil",
+			cipherIDs:   nil,
+			expectEmpty: true,
+		},
+		{
+			name:        "Valid cipher suite returns name",
+			cipherIDs:   []uint16{validSuite.ID},
+			expectEmpty: false,
+			checkFirst:  true,
+			firstName:   validSuite.Name,
+		},
+		{
+			name:        "Invalid cipher suite returns Unknown",
+			cipherIDs:   []uint16{0x9999},
+			expectEmpty: false,
+			checkFirst:  true,
+			firstName:   "Unknown(0x9999)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := cipherSuitesToStrings(tt.cipherIDs)
+
+			if tt.expectEmpty {
+				require.Nil(t, result)
+			} else {
+				require.NotNil(t, result)
+				require.Equal(t, len(tt.cipherIDs), len(result))
+
+				if tt.checkFirst {
+					require.Equal(t, tt.firstName, result[0])
+				}
+			}
+		})
 	}
 }
