@@ -41,7 +41,7 @@ func FilterHeaders(r *http.Response) error {
 	return nil
 }
 
-func getProxy(datasourceName string, datasourceManager *datasources.DatasourceManager, tlsConfig *tls.Config) *httputil.ReverseProxy {
+func getProxy(datasourceName string, datasourceManager *datasources.DatasourceManager, tlsMinVersion uint16, tlsCipherSuites []uint16) *httputil.ReverseProxy {
 	existingProxy := datasourceManager.GetProxy(datasourceName)
 
 	if existingProxy != nil {
@@ -81,13 +81,24 @@ func getProxy(datasourceName string, datasourceManager *datasources.DatasourceMa
 		RootCAs: serviceProxyRootCAs,
 	}
 
-	if tlsConfig != nil {
-		if tlsConfig.MinVersion != 0 {
-			proxyTLSBaseConfig.MinVersion = tlsConfig.MinVersion
+	if tlsMinVersion != 0 {
+		if tlsMinVersion >= tls.VersionTLS10 && tlsMinVersion <= tls.VersionTLS13 {
+			proxyTLSBaseConfig.MinVersion = tlsMinVersion
+			log.Debugf("Proxy using TLS MinVersion: 0x%04x for datasource '%s'", tlsMinVersion, datasourceName)
+		} else {
+			log.Warnf("Invalid TLS MinVersion 0x%04x for datasource '%s', using default TLS 1.2", tlsMinVersion, datasourceName)
+			proxyTLSBaseConfig.MinVersion = tls.VersionTLS12
 		}
-		if len(tlsConfig.CipherSuites) > 0 {
-			proxyTLSBaseConfig.CipherSuites = tlsConfig.CipherSuites
-		}
+	} else {
+		proxyTLSBaseConfig.MinVersion = tls.VersionTLS12
+		log.Debugf("Using default TLS 1.2 for datasource '%s'", datasourceName)
+	}
+
+	if len(tlsCipherSuites) > 0 {
+		proxyTLSBaseConfig.CipherSuites = tlsCipherSuites
+		log.Debugf("Proxy using %d cipher suites for datasource '%s'", len(tlsCipherSuites), datasourceName)
+	} else {
+		log.Debugf("Using default cipher suites for datasource '%s'", datasourceName)
 	}
 
 	serviceProxyTLSConfig := oscrypto.SecureTLSConfig(proxyTLSBaseConfig)
@@ -130,7 +141,7 @@ func getProxy(datasourceName string, datasourceManager *datasources.DatasourceMa
 	}
 }
 
-func CreateProxyHandler(datasourceManager *datasources.DatasourceManager, tlsConfig *tls.Config) func(http.ResponseWriter, *http.Request) {
+func CreateProxyHandler(datasourceManager *datasources.DatasourceManager, tlsMinVersion uint16, tlsCipherSuites []uint16) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		datasourceName := vars["datasourceName"]
@@ -147,7 +158,7 @@ func CreateProxyHandler(datasourceManager *datasources.DatasourceManager, tlsCon
 			return
 		}
 
-		datasourceProxy := getProxy(datasourceName, datasourceManager, tlsConfig)
+		datasourceProxy := getProxy(datasourceName, datasourceManager, tlsMinVersion, tlsCipherSuites)
 
 		if datasourceProxy == nil {
 			log.Errorf("cannot proxy request, invalid datasource proxy: %s", datasourceName)
